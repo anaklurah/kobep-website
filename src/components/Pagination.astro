@@ -1,0 +1,149 @@
+---
+export interface Props {
+  currentPage: number;
+  totalPages: number;
+  totalItems?: number;
+}
+
+const { currentPage, totalPages, totalItems } = Astro.props;
+
+if (totalPages <= 1) {
+  return null;
+}
+
+// Function to generate page URL while preserving other query params (e.g. search keywords)
+function getPageUrl(p: number) {
+  const urlObj = new URL(Astro.request.url);
+  if (p <= 1) {
+    urlObj.searchParams.delete('page');
+  } else {
+    urlObj.searchParams.set('page', String(p));
+  }
+  return urlObj.pathname + (urlObj.search ? urlObj.search : '');
+}
+
+// Sliding window pagination algorithm: never exceeds 7 items
+function getPaginationItems(current: number, total: number): (number | string)[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const items: (number | string)[] = [];
+
+  if (current <= 4) {
+    for (let i = 1; i <= 5; i++) {
+      items.push(i);
+    }
+    items.push('...');
+    items.push(total);
+  } else if (current >= total - 3) {
+    items.push(1);
+    items.push('...');
+    for (let i = total - 4; i <= total; i++) {
+      items.push(i);
+    }
+  } else {
+    items.push(1);
+    items.push('...');
+    items.push(current - 1);
+    items.push(current);
+    items.push(current + 1);
+    items.push('...');
+    items.push(total);
+  }
+
+  return items;
+}
+
+const pages = getPaginationItems(currentPage, totalPages);
+---
+
+<nav aria-label="Navigasi Halaman" class="flex flex-col items-center justify-center gap-2 my-8 select-none">
+  <div class="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-center max-w-full">
+    <!-- Tombol Sebelumnya (Prev) -->
+    {currentPage > 1 ? (
+      <a 
+        href={getPageUrl(currentPage - 1)}
+        class="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 h-8 rounded-lg bg-[#0c1017] hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold border border-slate-800 hover:border-slate-700 transition-all shadow-sm active:scale-95"
+        title="Halaman Sebelumnya"
+      >
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <span class="hidden sm:inline">Sebelumnya</span>
+      </a>
+    ) : (
+      <span 
+        class="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 h-8 rounded-lg bg-[#0c1017]/40 text-slate-600 text-xs font-semibold border border-slate-800/50 cursor-not-allowed opacity-50"
+        aria-disabled="true"
+      >
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"></polyline>
+        </svg>
+        <span class="hidden sm:inline">Sebelumnya</span>
+      </span>
+    )}
+
+    <!-- Daftar Angka Halaman dengan Ellipsis -->
+    <div class="flex items-center gap-1">
+      {pages.map((p) => {
+        if (p === '...') {
+          return (
+            <span class="w-6 sm:w-7 h-8 flex items-center justify-center text-slate-500 font-mono text-xs select-none">
+              ...
+            </span>
+          );
+        }
+        
+        const isCurrent = p === currentPage;
+        return isCurrent ? (
+          <span 
+            aria-current="page"
+            class="min-w-[32px] h-8 px-2 flex items-center justify-center rounded-lg bg-primary text-white font-bold text-xs shadow-md shadow-primary/30 ring-1 ring-primary/60 font-mono"
+          >
+            {p}
+          </span>
+        ) : (
+          <a 
+            href={getPageUrl(p as number)}
+            class="min-w-[32px] h-8 px-2 flex items-center justify-center rounded-lg bg-[#0c1017] hover:bg-slate-800 text-slate-400 hover:text-white text-xs font-semibold border border-slate-800 hover:border-slate-700 transition-all font-mono active:scale-95"
+          >
+            {p}
+          </a>
+        );
+      })}
+    </div>
+
+    <!-- Tombol Selanjutnya (Next) -->
+    {currentPage < totalPages ? (
+      <a 
+        href={getPageUrl(currentPage + 1)}
+        class="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 h-8 rounded-lg bg-[#0c1017] hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold border border-slate-800 hover:border-slate-700 transition-all shadow-sm active:scale-95"
+        title="Halaman Selanjutnya"
+      >
+        <span class="hidden sm:inline">Selanjutnya</span>
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </a>
+    ) : (
+      <span 
+        class="inline-flex items-center justify-center gap-1.5 px-2.5 sm:px-3.5 h-8 rounded-lg bg-[#0c1017]/40 text-slate-600 text-xs font-semibold border border-slate-800/50 cursor-not-allowed opacity-50"
+        aria-disabled="true"
+      >
+        <span class="hidden sm:inline">Selanjutnya</span>
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </span>
+    )}
+  </div>
+
+  <!-- Indikator Informasi Halaman untuk Mobile & Aksesibilitas -->
+  <div class="text-[11px] text-slate-500 font-medium">
+    Halaman <span class="text-slate-300 font-semibold">{currentPage}</span> dari <span class="text-slate-300 font-semibold">{totalPages}</span>
+    {totalItems !== undefined && (
+      <span class="text-slate-600 ml-1">({totalItems} total video)</span>
+    )}
+  </div>
+</nav>

@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import VideoCard from '../components/VideoCard.astro';
 import SearchBar from '../components/SearchBar.astro';
 import AdBanner from '../components/AdBanner.astro';
+import Pagination from '../components/Pagination.astro';
 import { getDb } from '../lib/db';
 
 export const prerender = false;
@@ -67,49 +68,6 @@ const paginatedVideos = allVideos.slice(startIndex, startIndex + pageSize);
     <AdBanner position="watch_bottom" />
 
     <!-- Pagination -->
-    {totalPages > 1 && (
-      <nav aria-label="Pagination" class="flex justify-center items-center gap-2 my-8">
-        {page > 1 ? (
-          <a 
-            href={`/?page=${page - 1}`}
-            class="px-4 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 text-gray-300 text-xs font-semibold border border-gray-800 transition-colors"
-          >
-            &larr; Sebelumnya
-          </a>
-        ) : (
-          <span class="px-4 py-2 rounded-lg bg-gray-900/40 text-gray-600 text-xs font-semibold border border-gray-800/40 cursor-not-allowed">
-            &larr; Sebelumnya
-          </span>
-        )}
-
-        <div class="flex items-center gap-1 text-xs">
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <a
-              href={`/?page=${p}`}
-              class={`w-8 h-8 flex items-center justify-center rounded-lg font-semibold transition-colors ${
-                p === page 
-                  ? 'bg-primary text-white shadow-md shadow-primary/30' 
-                  : 'bg-gray-900 hover:bg-gray-800 text-gray-400 border border-gray-800'
-              }`}
-            >
-              {p}
-            </a>
-          ))}
-        </div>
-
-        {page < totalPages ? (
-          <a 
-            href={`/?page=${page + 1}`}
-            class="px-4 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 text-gray-300 text-xs font-semibold border border-gray-800 transition-colors"
-          >
-            Selanjutnya &rarr;
-          </a>
-        ) : (
-          <span class="px-4 py-2 rounded-lg bg-gray-900/40 text-gray-600 text-xs font-semibold border border-gray-800/40 cursor-not-allowed">
-            Selanjutnya &rarr;
-          </span>
-        )}
-      </nav>
-    )}
+    <Pagination currentPage={page} totalPages={totalPages} totalItems={allVideos.length} />
   </div>
 </Layout>

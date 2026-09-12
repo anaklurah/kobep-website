@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import VideoCard from '../components/VideoCard.astro';
 import SearchBar from '../components/SearchBar.astro';
 import AdBanner from '../components/AdBanner.astro';
+import Pagination from '../components/Pagination.astro';
 import { getDb } from '../lib/db';
 
 export const prerender = false;
@@ -19,6 +20,13 @@ const searchResults = query
         (v.tags && v.tags.some((t) => t.toLowerCase().includes(query)))
     )
   : [];
+
+// Pagination
+const page = Math.max(1, parseInt(Astro.url.searchParams.get('page') || '1', 10));
+const pageSize = 12;
+const totalPages = Math.ceil(searchResults.length / pageSize) || 1;
+const startIndex = (page - 1) * pageSize;
+const paginatedVideos = searchResults.slice(startIndex, startIndex + pageSize);
 ---
 
 <Layout title={query ? `Hasil Pencarian: "${query}"` : 'Pencarian Video'}>
@@ -54,11 +62,14 @@ const searchResults = query
     ) : (
       <div class="mb-8">
         <ul class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-6 md:gap-x-4 md:gap-y-6 lg:gap-x-5 lg:gap-y-7">
-          {searchResults.map((video) => (
+          {paginatedVideos.map((video) => (
             <VideoCard video={video} />
           ))}
         </ul>
       </div>
+
+      <!-- Pagination -->
+      <Pagination currentPage={page} totalPages={totalPages} totalItems={searchResults.length} />
     )}
 
     <AdBanner position="watch_bottom" />
