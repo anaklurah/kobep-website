@@ -98,7 +98,9 @@ npm run serve
 
 Aplikasi dapat diakses di:
 - **Website Publik**: [http://localhost:4321/](http://localhost:4321/)
-- **Panel Agen**: [http://localhost:4321/admin](http://localhost:4321/admin)
+- **Panel Pengelola (Terproteksi)**: [http://localhost:4321/admin](http://localhost:4321/admin) (otomatis dialihkan ke `/admin/login`)
+  - **Username Default**: `adminkd`
+  - **Autentikasi**: Hash Bcrypt + Secure HMAC Session Cookies
 
 ---
 

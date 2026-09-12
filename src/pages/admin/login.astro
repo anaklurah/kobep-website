@@ -1,0 +1,232 @@
+---
+import { getDb } from '../../lib/db';
+import { verifySessionToken, COOKIE_NAME } from '../../lib/auth';
+import { hexToHsl } from '../../lib/color';
+import '../../styles/global.css';
+
+export const prerender = false;
+
+// If already logged in, redirect straight to admin panel
+const sessionCookie = Astro.cookies.get(COOKIE_NAME)?.value;
+if (verifySessionToken(sessionCookie)) {
+  return Astro.redirect('/admin');
+}
+
+const db = getDb();
+const settings = db.settings;
+const primaryHsl = hexToHsl(settings.primaryColor || '#7c3aed');
+---
+
+<!DOCTYPE html>
+<html lang="id" class="dark bg-[#07090e] text-slate-100 antialiased selection:bg-primary selection:text-white">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Masuk Panel Agen | {settings.siteName}</title>
+    <link rel="icon" type="image/x-icon" href={settings.faviconUrl || '/favicon.ico'} />
+    <style define:vars={{ primaryHsl }}>
+      :root {
+        --primaryHsl: var(--primaryHsl);
+      }
+      .bg-primary {
+        background-color: hsl(var(--primaryHsl));
+      }
+      .text-primary {
+        color: hsl(var(--primaryHsl));
+      }
+      .border-primary {
+        border-color: hsl(var(--primaryHsl));
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex items-center justify-center p-4 bg-[#05070b] relative overflow-hidden">
+    <!-- Subtle Background Glow -->
+    <div class="absolute -top-40 -left-40 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-primary/5 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="w-full max-w-md relative z-10">
+      <!-- Header Logo & Branding -->
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-[#0e1420] border border-slate-800 shadow-xl mb-3 text-primary">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+        </div>
+        <h1 class="text-xl font-black text-white tracking-tight">{settings.siteName}</h1>
+        <p class="text-xs text-slate-400 mt-1">Autentikasi Akses Khusus Pengelola Situs</p>
+      </div>
+
+      <!-- Login Card -->
+      <div class="bg-[#0c1017] border border-slate-800/90 rounded-2xl p-6 md:p-8 shadow-2xl backdrop-blur-xl">
+        <!-- Error Alert -->
+        <div id="login-error-box" class="hidden mb-5 p-3 rounded-xl bg-red-950/40 border border-red-800/80 text-red-300 text-xs flex items-center gap-2.5">
+          <svg class="w-4 h-4 shrink-0 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <span id="login-error-msg">Nama pengguna atau kata sandi salah.</span>
+        </div>
+
+        <form id="admin-login-form" class="space-y-4">
+          <!-- Username Input -->
+          <div>
+            <label for="username-input" class="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
+              Nama Pengguna
+            </label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="12" cy="7" r="4"></circle>
+                </svg>
+              </div>
+              <input 
+                type="text" 
+                id="username-input" 
+                name="username"
+                required 
+                autocomplete="username"
+                placeholder="Masukkan username..." 
+                class="w-full pl-10 pr-3.5 py-2.5 bg-[#06090f] border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-slate-600 font-medium transition-all"
+              />
+            </div>
+          </div>
+
+          <!-- Password Input -->
+          <div>
+            <label for="password-input" class="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wider">
+              Kata Sandi
+            </label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+              </div>
+              <input 
+                type="password" 
+                id="password-input" 
+                name="password"
+                required 
+                autocomplete="current-password"
+                placeholder="Masukkan kata sandi..." 
+                class="w-full pl-10 pr-10 py-2.5 bg-[#06090f] border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-slate-600 font-medium transition-all"
+              />
+              <button 
+                type="button" 
+                id="toggle-password-btn" 
+                class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 transition-colors"
+                title="Lihat kata sandi"
+              >
+                <svg id="eye-icon" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Submit Button -->
+          <div class="pt-2">
+            <button 
+              type="submit" 
+              id="submit-btn" 
+              class="w-full py-2.5 px-4 rounded-xl bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow-lg shadow-primary/20 transition-all active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <span>Masuk ke Panel Agen</span>
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </div>
+        </form>
+
+        <div class="mt-6 pt-4 border-t border-slate-800/80 text-center">
+          <a href="/" class="text-xs text-slate-500 hover:text-slate-300 transition-colors flex items-center justify-center gap-1">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            <span>Kembali ke Beranda</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Security Notice Footer -->
+      <div class="text-center mt-4">
+        <p class="text-[11px] text-slate-600 font-mono">Dilindungi Enkripsi Bcrypt & Sesi Aman HMAC-SHA256</p>
+      </div>
+    </div>
+
+    <script is:inline>
+      (function() {
+        const form = document.getElementById('admin-login-form');
+        const usernameInput = document.getElementById('username-input');
+        const passwordInput = document.getElementById('password-input');
+        const toggleBtn = document.getElementById('toggle-password-btn');
+        const errorBox = document.getElementById('login-error-box');
+        const errorMsg = document.getElementById('login-error-msg');
+        const submitBtn = document.getElementById('submit-btn');
+
+        // Toggle Password visibility
+        if (toggleBtn && passwordInput) {
+          toggleBtn.addEventListener('click', () => {
+            const isPassword = passwordInput.getAttribute('type') === 'password';
+            passwordInput.setAttribute('type', isPassword ? 'text' : 'password');
+          });
+        }
+
+        // Form Submission
+        if (form) {
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (errorBox) errorBox.classList.add('hidden');
+            if (submitBtn) {
+              submitBtn.disabled = true;
+              submitBtn.innerHTML = '<span>Memverifikasi...</span>';
+            }
+
+            const username = usernameInput ? usernameInput.value.trim() : '';
+            const password = passwordInput ? passwordInput.value : '';
+
+            try {
+              const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+              });
+
+              const data = await res.json();
+
+              if (res.ok && data.success) {
+                if (submitBtn) submitBtn.innerHTML = '<span>Berhasil! Mengalihkan...</span>';
+                window.location.href = '/admin';
+              } else {
+                if (errorBox && errorMsg) {
+                  errorMsg.textContent = data.error || 'Nama pengguna atau kata sandi tidak cocok.';
+                  errorBox.classList.remove('hidden');
+                }
+                if (submitBtn) {
+                  submitBtn.disabled = false;
+                  submitBtn.innerHTML = '<span>Masuk ke Panel Agen</span>';
+                }
+              }
+            } catch (err) {
+              if (errorBox && errorMsg) {
+                errorMsg.textContent = 'Gagal menghubungi server autentikasi.';
+                errorBox.classList.remove('hidden');
+              }
+              if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<span>Masuk ke Panel Agen</span>';
+              }
+            }
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

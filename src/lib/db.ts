@@ -77,6 +77,10 @@ export interface VideoBrandingSettings {
 
 export interface DatabaseSchema {
   settings: SiteSettings;
+  adminAuth?: {
+    username: string;
+    passwordHash: string;
+  };
   videoBranding?: VideoBrandingSettings;
   categories: Category[];
   videos: Video[];

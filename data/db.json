@@ -14,6 +14,10 @@
     "telegramLink": "https://t.me/Nyalaporn",
     "adminPin": "123456"
   },
+  "adminAuth": {
+    "username": "adminkd",
+    "passwordHash": "$2a$10$QPiPr/PXmq6YZBGgiT2vWOmCufqECXhQw3/WTC2rhZXBP.iUDkwgS"
+  },
   "videoBranding": {
     "enabled": true,
     "introPath": "",
