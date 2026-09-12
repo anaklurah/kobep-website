@@ -1396,12 +1396,27 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
           <div>
             <label class="block text-xs font-medium text-slate-400 mb-1">Sumber Berkas Video *</label>
             <div class="space-y-2">
-              <input 
-                type="text" 
-                id="new-video-url" 
-                placeholder="Masukkan tautan langsung URL video (MP4 / WebM / Streaming)..." 
-                class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
-              />
+              <div class="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  id="new-video-url" 
+                  placeholder="Masukkan tautan langsung URL video (MP4 / WebM / Streaming)..." 
+                  class="flex-1 bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                />
+                <button 
+                  type="button" 
+                  id="grab-frame-from-url-btn" 
+                  class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold border border-slate-700 transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5 shrink-0"
+                  title="Ambil cuplikan frame otomatis dari URL video"
+                >
+                  <svg class="w-3.5 h-3.5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                    <polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                  <span id="grab-frame-btn-text">Ambil Frame</span>
+                </button>
+              </div>
               <div class="flex items-center gap-2">
                 <span class="text-xs text-slate-500">atau pilih berkas:</span>
                 <input type="file" id="new-video-file" accept="video/mp4,video/webm,video/mkv" class="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 cursor-pointer" />
@@ -1942,6 +1957,111 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
             }
           };
         });
+      }
+
+      // Grab Frame from Video URL (Server FFmpeg + Client Canvas Fallback)
+      const grabFrameBtn = document.getElementById('grab-frame-from-url-btn');
+      const grabFrameBtnText = document.getElementById('grab-frame-btn-text');
+      const videoUrlInput = document.getElementById('new-video-url') as HTMLInputElement | null;
+
+      async function triggerGenerateThumbFromUrl() {
+        const url = videoUrlInput ? videoUrlInput.value.trim() : '';
+        if (!url) {
+          showToast('Masukkan tautan URL video terlebih dahulu', true);
+          return;
+        }
+
+        if (grabFrameBtn) (grabFrameBtn as HTMLButtonElement).disabled = true;
+        if (grabFrameBtnText) grabFrameBtnText.textContent = 'Memproses...';
+        showToast('Mengekstrak cuplikan frame otomatis...');
+
+        // 1. Try server FFmpeg endpoint first
+        try {
+          const res = await fetch('/api/videos/generate-thumb', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ videoUrl: url })
+          });
+          const data = await res.json();
+          if (data.success && data.url) {
+            if (thumbInput) thumbInput.value = data.url;
+            if (thumbPreviewBox && thumbPreviewImg) {
+              thumbPreviewImg.src = data.url;
+              thumbPreviewBox.classList.remove('hidden');
+            }
+            showToast('Cuplikan frame otomatis dari URL berhasil diambil!');
+            if (grabFrameBtn) (grabFrameBtn as HTMLButtonElement).disabled = false;
+            if (grabFrameBtnText) grabFrameBtnText.textContent = 'Ambil Frame';
+            return;
+          }
+        } catch (serverErr) {
+          console.warn('Server FFmpeg extract failed, trying client canvas...', serverErr);
+        }
+
+        // 2. Fallback to client-side video element
+        try {
+          const tempVideo = document.createElement('video');
+          tempVideo.crossOrigin = 'anonymous';
+          tempVideo.src = url;
+          tempVideo.muted = true;
+          tempVideo.playsInline = true;
+
+          tempVideo.onloadedmetadata = () => {
+            const durationInput = document.getElementById('new-video-duration') as HTMLInputElement;
+            if (durationInput && tempVideo.duration && !durationInput.value) {
+              const totalSec = Math.floor(tempVideo.duration);
+              const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+              const s = (totalSec % 60).toString().padStart(2, '0');
+              durationInput.value = `${m}:${s}`;
+            }
+            tempVideo.currentTime = Math.min(3, tempVideo.duration / 2 || 1);
+          };
+
+          tempVideo.onseeked = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = tempVideo.videoWidth || 640;
+            canvas.height = tempVideo.videoHeight || 360;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+              canvas.toBlob(async (blob) => {
+                if (blob) {
+                  const fd = new FormData();
+                  fd.append('file', blob, 'frame-url-thumb.jpg');
+                  fd.append('type', 'thumbs');
+                  try {
+                    const uploadRes = await fetch('/api/upload', { method: 'POST', body: fd });
+                    const d = await uploadRes.json();
+                    if (d.success) {
+                      if (thumbInput) thumbInput.value = d.url;
+                      if (thumbPreviewBox && thumbPreviewImg) {
+                        thumbPreviewImg.src = d.url;
+                        thumbPreviewBox.classList.remove('hidden');
+                      }
+                      showToast('Cuplikan frame berhasil dibuat dari URL video!');
+                    }
+                  } catch (uErr) {
+                    console.error(uErr);
+                  }
+                }
+              }, 'image/jpeg', 0.85);
+            }
+          };
+
+          tempVideo.onerror = () => {
+            showToast('Gagal memuat cuplikan dari URL video ini.', true);
+          };
+        } catch (e: any) {
+          console.error(e);
+          showToast('Gagal mengambil frame dari URL video', true);
+        } finally {
+          if (grabFrameBtn) (grabFrameBtn as HTMLButtonElement).disabled = false;
+          if (grabFrameBtnText) grabFrameBtnText.textContent = 'Ambil Frame';
+        }
+      }
+
+      if (grabFrameBtn) {
+        grabFrameBtn.addEventListener('click', triggerGenerateThumbFromUrl);
       }
 
       // Manual Thumb File selection preview

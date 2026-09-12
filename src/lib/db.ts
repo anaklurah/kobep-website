@@ -43,6 +43,7 @@ export interface Video {
   createdAt: string;
   isFeatured?: boolean;
   tags?: string[];
+  previewThumbs?: string[];
 }
 
 export interface AdBanner {
@@ -406,7 +407,8 @@ function initTablesAndSeed(db: Database.Database): void {
       likes INTEGER DEFAULT 0,
       createdAt TEXT,
       isFeatured INTEGER DEFAULT 0,
-      tags TEXT
+      tags TEXT,
+      previewThumbs TEXT
     );
 
     CREATE TABLE IF NOT EXISTS ads (
@@ -440,6 +442,10 @@ function initTablesAndSeed(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_videos_slug ON videos(slug);
     CREATE INDEX IF NOT EXISTS idx_comments_videoId ON comments(videoId);
   `);
+
+  try {
+    db.exec(`ALTER TABLE videos ADD COLUMN previewThumbs TEXT;`);
+  } catch {}
 
   const row = db.prepare('SELECT count(*) as cnt FROM settings').get() as { cnt: number } | undefined;
   if (!row || row.cnt === 0) {
@@ -665,6 +671,12 @@ export function getDb(): DatabaseSchema {
     } catch {
       tags = [];
     }
+    let previewThumbs: string[] = [];
+    try {
+      previewThumbs = r.previewThumbs ? JSON.parse(r.previewThumbs) : [];
+    } catch {
+      previewThumbs = [];
+    }
     return {
       id: r.id,
       title: r.title,
@@ -678,7 +690,8 @@ export function getDb(): DatabaseSchema {
       likes: Number(r.likes || 0),
       createdAt: r.createdAt,
       isFeatured: Boolean(r.isFeatured),
-      tags
+      tags,
+      previewThumbs
     };
   });
 
@@ -804,8 +817,8 @@ export function saveDb(data: DatabaseSchema): void {
       db.prepare('DELETE FROM videos').run();
       const insertVid = db.prepare(`
         INSERT INTO videos (
-          id, title, slug, description, videoUrl, thumbUrl, duration, category, views, likes, createdAt, isFeatured, tags
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          id, title, slug, description, videoUrl, thumbUrl, duration, category, views, likes, createdAt, isFeatured, tags, previewThumbs
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
       data.videos.forEach((v, idx) => {
         insertVid.run(
@@ -821,7 +834,8 @@ export function saveDb(data: DatabaseSchema): void {
           v.likes || 0,
           v.createdAt || new Date().toISOString(),
           v.isFeatured ? 1 : 0,
-          JSON.stringify(v.tags || [])
+          JSON.stringify(v.tags || []),
+          JSON.stringify(v.previewThumbs || [])
         );
       });
     }

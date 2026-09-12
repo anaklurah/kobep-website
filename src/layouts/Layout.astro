@@ -113,5 +113,87 @@ const primaryHsl = hexToHsl(settings.primaryColor || '#7c3aed');
         })();
       </script>
     )}
+
+    <!-- Global Video Storyboard Hover Scrubbing Script -->
+    <script is:inline>
+      (function() {
+        function initStoryboardListeners() {
+          document.querySelectorAll('.storyboard-card').forEach(function(card) {
+            if (card.dataset.storyboardInit === 'true') return;
+            card.dataset.storyboardInit = 'true';
+
+            var defaultThumb = card.getAttribute('data-default-thumb') || '';
+            var rawThumbs = card.getAttribute('data-preview-thumbs') || '[]';
+            var thumbs = [];
+            try {
+              thumbs = JSON.parse(rawThumbs);
+            } catch (e) {
+              thumbs = [];
+            }
+            if (!Array.isArray(thumbs) || thumbs.length <= 1) return;
+
+            var img = card.querySelector('.card-thumb-img');
+            var progress = card.querySelector('.scrub-progress');
+            if (!img) return;
+
+            var timer = null;
+            var preloaded = false;
+
+            function preloadFrames() {
+              if (preloaded) return;
+              preloaded = true;
+              thumbs.slice(0, 8).forEach(function(src) {
+                var pImg = new Image();
+                pImg.src = src;
+              });
+            }
+
+            // Mouse Move: Scrub frame directly by cursor position
+            card.addEventListener('mousemove', function(e) {
+              clearInterval(timer);
+              var rect = card.getBoundingClientRect();
+              var x = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+              var idx = Math.min(thumbs.length - 1, Math.floor(x * thumbs.length));
+              if (img.src !== thumbs[idx]) {
+                img.src = thumbs[idx];
+              }
+              if (progress) {
+                progress.style.width = Math.round(x * 100) + '%';
+              }
+            });
+
+            // Mouse Enter: Preload and start auto-cycling if cursor stays still
+            card.addEventListener('mouseenter', function() {
+              preloadFrames();
+              var idx = 0;
+              clearInterval(timer);
+              timer = setInterval(function() {
+                idx = (idx + 1) % thumbs.length;
+                img.src = thumbs[idx];
+                if (progress) {
+                  progress.style.width = Math.round(((idx + 1) / thumbs.length) * 100) + '%';
+                }
+              }, 380);
+            });
+
+            // Mouse Leave: Restore default thumbnail
+            card.addEventListener('mouseleave', function() {
+              clearInterval(timer);
+              img.src = defaultThumb;
+              if (progress) {
+                progress.style.width = '0%';
+              }
+            });
+          });
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', initStoryboardListeners);
+        } else {
+          initStoryboardListeners();
+        }
+        window.addEventListener('load', initStoryboardListeners);
+      })();
+    </script>
   </body>
 </html>

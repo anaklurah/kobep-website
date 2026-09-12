@@ -320,3 +320,33 @@ export async function processVideo(
     return { success: false, error: err.message || 'Error executing video processor' };
   }
 }
+
+/**
+ * Extract a single thumbnail frame from a video file or remote URL using FFmpeg
+ */
+export async function extractThumbnailFrame(
+  videoSource: string,
+  destPath: string,
+  timeOffsetSeconds: number = 3
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    try {
+      const args = [
+        '-y',
+        '-ss', String(timeOffsetSeconds),
+        '-i', videoSource,
+        '-vframes', '1',
+        '-q:v', '2',
+        destPath
+      ];
+      const proc = spawn('ffmpeg', args);
+      proc.on('close', (code) => {
+        resolve(code === 0 && fs.existsSync(destPath));
+      });
+      proc.on('error', () => resolve(false));
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
