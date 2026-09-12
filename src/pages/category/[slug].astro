@@ -58,12 +58,12 @@ const filteredVideos = db.videos.filter(
       </div>
     ) : (
       <div class="mb-8">
-        <ul class="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-6 md:gap-x-4 md:gap-y-7">
+        <ul class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-6 md:gap-x-4 md:gap-y-6 lg:gap-x-5 lg:gap-y-7">
           {filteredVideos.map((video, idx) => (
             <>
               <VideoCard video={video} />
               {idx === 3 && (
-                <li class="col-span-2 lg:col-span-4 my-2">
+                <li class="col-span-2 md:col-span-3 lg:col-span-4 my-2">
                   <AdBanner position="grid_middle" />
                 </li>
               )}

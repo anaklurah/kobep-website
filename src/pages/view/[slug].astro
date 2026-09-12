@@ -229,7 +229,7 @@ const topTrendingVideos = db.videos
           <span>Paling Banyak Ditonton</span>
         </h3>
 
-        <div class="grid grid-cols-2 lg:grid-cols-1 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-1 gap-3 md:gap-4">
           {topTrendingVideos.map((item) => (
             <VideoCard video={item} />
           ))}

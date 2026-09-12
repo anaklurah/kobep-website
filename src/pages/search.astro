@@ -53,7 +53,7 @@ const searchResults = query
       </div>
     ) : (
       <div class="mb-8">
-        <ul class="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-6 md:gap-x-4 md:gap-y-7">
+        <ul class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-3 gap-y-6 md:gap-x-4 md:gap-y-6 lg:gap-x-5 lg:gap-y-7">
           {searchResults.map((video) => (
             <VideoCard video={video} />
           ))}
