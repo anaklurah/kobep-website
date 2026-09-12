@@ -22,8 +22,10 @@ const paginatedVideos = allVideos.slice(startIndex, startIndex + pageSize);
 
 <Layout>
   <div class="container mx-auto px-4 py-3">
-    <!-- Search Bar (includes Tag Populer & Pencarian Terakhir) -->
-    <SearchBar />
+    <!-- Search Bar (Desktop only, mobile view search bar is inside Navbar) -->
+    <div class="hidden md:block">
+      <SearchBar />
+    </div>
 
     <!-- Top Header Ad Banner -->
     <AdBanner position="header" />

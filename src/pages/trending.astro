@@ -14,8 +14,10 @@ const trendingVideos = [...db.videos].sort((a, b) => (b.views || 0) - (a.views |
 
 <Layout title="Video Paling Populer & Trending">
   <div class="container mx-auto px-4 py-3">
-    <!-- Search Bar (includes Tag Populer & Pencarian Terakhir) -->
-    <SearchBar placeholder="Cari di antara video trending..." />
+    <!-- Search Bar (Desktop only, mobile view search bar is inside Navbar) -->
+    <div class="hidden md:block">
+      <SearchBar placeholder="Cari di antara video trending..." />
+    </div>
 
     <!-- Top Header Ad Banner -->
     <AdBanner position="header" />

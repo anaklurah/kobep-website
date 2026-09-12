@@ -4,9 +4,16 @@ import { getDb } from '../lib/db';
 interface Props {
   initialQuery?: string;
   placeholder?: string;
+  isMobileNavbar?: boolean;
+  class?: string;
 }
 
-const { initialQuery = '', placeholder = 'Cari video, artis, atau kategori...' } = Astro.props;
+const { 
+  initialQuery = '', 
+  placeholder = 'Cari video, artis, atau kategori...',
+  isMobileNavbar = false,
+  class: className = ''
+} = Astro.props;
 
 const db = getDb();
 
@@ -51,18 +58,18 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
 ---
 
 <!-- Search Component Wrapper with Smooth Dropdown (Not Fullscreen) -->
-<div id="search-component" class="relative w-full max-w-2xl mx-auto my-4 px-4 z-40">
-  
+<div 
+  class={`smooth-search-container relative w-full z-40 ${isMobileNavbar ? 'my-0 px-0' : 'max-w-2xl mx-auto my-4 px-4'} ${className}`}
+>
   <!-- Search Input Bar -->
   <form 
-    id="smooth-search-form" 
     action="/search" 
     method="GET" 
-    class="relative flex items-center bg-[#111827] hover:bg-[#151d2d] border border-gray-800 focus-within:border-primary/80 focus-within:ring-1 focus-within:ring-primary/80 rounded-full px-3.5 py-1.5 transition-all shadow-lg"
+    class={`smooth-search-form relative flex items-center bg-[#111827] hover:bg-[#151d2d] border border-gray-800 focus-within:border-primary/80 focus-within:ring-1 focus-within:ring-primary/80 rounded-full transition-all shadow-lg ${isMobileNavbar ? 'px-3 py-1.5' : 'px-3.5 py-1.5'}`}
   >
     <!-- Magnifying Glass Icon -->
-    <div class="pl-1.5 pr-2.5 flex items-center pointer-events-none text-gray-400">
-      <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+    <div class={`${isMobileNavbar ? 'pl-0.5 pr-2' : 'pl-1.5 pr-2.5'} flex items-center pointer-events-none text-gray-400`}>
+      <svg class={`${isMobileNavbar ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
         <circle cx="11" cy="11" r="8"></circle>
         <path d="m21 21-4.35-4.35"></path>
       </svg>
@@ -70,21 +77,19 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
 
     <!-- Main Text Input -->
     <input 
-      id="smooth-search-input"
       type="text" 
       name="q" 
       value={initialQuery}
       placeholder={placeholder} 
       autocomplete="off"
       required
-      class="w-full py-1.5 bg-transparent text-white text-sm focus:outline-none placeholder:text-gray-500 font-medium"
+      class={`smooth-search-input w-full bg-transparent text-white focus:outline-none placeholder:text-gray-500 font-medium ${isMobileNavbar ? 'py-1 text-xs' : 'py-1.5 text-sm'}`}
     />
 
     <!-- Clear Text (X) Button -->
     <button 
-      id="smooth-clear-btn" 
       type="button" 
-      class="text-gray-400 hover:text-white p-1 rounded-full hidden transition-colors mr-1"
+      class="smooth-clear-btn text-gray-400 hover:text-white p-1 rounded-full hidden transition-colors mr-1"
       title="Bersihkan"
     >
       <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -96,7 +101,7 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
     <!-- Search Button -->
     <button 
       type="submit" 
-      class="px-4 py-1.5 bg-primary hover:bg-primary/90 text-white text-xs font-bold rounded-full shadow-md transition-all active:scale-95 shrink-0"
+      class={`bg-primary hover:bg-primary/90 text-white font-bold rounded-full shadow-md transition-all active:scale-95 shrink-0 ${isMobileNavbar ? 'px-3 py-1 text-xs' : 'px-4 py-1.5 text-xs'}`}
     >
       Cari
     </button>
@@ -104,31 +109,29 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
 
   <!-- Smooth Dropdown Menu (Directly Below Search Bar, Not Fullscreen) -->
   <div 
-    id="smooth-search-dropdown" 
-    class="absolute top-full left-4 right-4 mt-2 bg-[#0d121d]/95 border border-gray-800/90 rounded-2xl shadow-2xl backdrop-blur-xl p-4 md:p-5 max-h-[70vh] overflow-y-auto space-y-5 transition-all duration-200 ease-out opacity-0 invisible translate-y-2 pointer-events-none z-50 scrollbar-thin scrollbar-thumb-gray-800"
+    class={`smooth-search-dropdown absolute top-full mt-2 bg-[#0d121d]/98 border border-gray-800/90 rounded-2xl shadow-2xl backdrop-blur-xl max-h-[70vh] overflow-y-auto space-y-4 md:space-y-5 transition-all duration-200 ease-out opacity-0 invisible translate-y-2 pointer-events-none z-50 scrollbar-thin scrollbar-thumb-gray-800 ${isMobileNavbar ? 'left-0 right-0 p-3.5' : 'left-4 right-4 p-4 md:p-5'}`}
   >
-    
     <!-- 1. Recent Searches (if available) -->
-    <div id="dropdown-recent-section" class="hidden">
+    <div class="dropdown-recent-section hidden">
       <div class="flex items-center justify-between mb-2">
-        <h3 class="text-sm md:text-base font-bold text-white tracking-tight">Recent Searches</h3>
-        <button id="dropdown-clear-history-btn" type="button" class="text-xs text-gray-500 hover:text-red-400 transition-colors">
+        <h3 class="text-xs md:text-base font-bold text-white tracking-tight">Recent Searches</h3>
+        <button type="button" class="dropdown-clear-history-btn text-xs text-gray-500 hover:text-red-400 transition-colors">
           Clear all
         </button>
       </div>
-      <div id="dropdown-recent-list" class="space-y-0.5">
+      <div class="dropdown-recent-list space-y-0.5">
         <!-- Dynamically populated from localStorage -->
       </div>
     </div>
 
     <!-- 2. Trending Searches (Matches Screenshot Style) -->
     <div>
-      <h3 class="text-sm md:text-base font-bold text-white tracking-tight mb-2">Trending Searches</h3>
+      <h3 class="text-xs md:text-base font-bold text-white tracking-tight mb-2">Trending Searches</h3>
       <div class="space-y-0.5">
         {trendingList.map((item) => (
           <a 
             href={`/search?q=${encodeURIComponent(item)}`}
-            class="dropdown-search-link block text-sm text-gray-300 hover:text-white hover:translate-x-1 py-1 transition-all cursor-pointer font-normal"
+            class="dropdown-search-link block text-xs md:text-sm text-gray-300 hover:text-white hover:translate-x-1 py-1 transition-all cursor-pointer font-normal"
             data-query={item}
           >
             {item}
@@ -139,20 +142,20 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
 
     <!-- 3. Trending Pornstars and Models / Kategori (Matches Screenshot Style) -->
     <div>
-      <h3 class="text-sm md:text-base font-bold text-white tracking-tight mb-2.5">Trending Pornstars and Models</h3>
-      <div class="space-y-2.5">
+      <h3 class="text-xs md:text-base font-bold text-white tracking-tight mb-2 md:mb-2.5">Trending Pornstars and Models</h3>
+      <div class="space-y-2 md:space-y-2.5">
         {trendingCategories.map((cat) => (
           <a 
             href={`/category/${cat.slug}`}
-            class="flex items-center gap-3.5 group p-1 -mx-1 rounded-xl hover:bg-white/5 transition-colors"
+            class="flex items-center gap-2.5 md:gap-3.5 group p-1 -mx-1 rounded-xl hover:bg-white/5 transition-colors"
           >
             <img 
               src={cat.thumb} 
               alt={cat.name} 
-              class="w-12 h-12 rounded-full object-cover border border-gray-800 group-hover:border-primary transition-colors bg-gray-900 shrink-0" 
+              class="w-9 h-9 md:w-12 md:h-12 rounded-full object-cover border border-gray-800 group-hover:border-primary transition-colors bg-gray-900 shrink-0" 
               onerror="this.style.opacity='0.5'"
             />
-            <span class="text-sm font-semibold text-gray-200 group-hover:text-white transition-colors">
+            <span class="text-xs md:text-sm font-semibold text-gray-200 group-hover:text-white transition-colors">
               {cat.name}
             </span>
           </a>
@@ -167,27 +170,6 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
 <script is:inline>
   (function() {
     const STORAGE_KEY = 'stream_search_history';
-    const container = document.getElementById('search-component');
-    const form = document.getElementById('smooth-search-form');
-    const input = document.getElementById('smooth-search-input');
-    const clearBtn = document.getElementById('smooth-clear-btn');
-    const dropdown = document.getElementById('smooth-search-dropdown');
-    const recentSection = document.getElementById('dropdown-recent-section');
-    const recentList = document.getElementById('dropdown-recent-list');
-    const clearHistoryBtn = document.getElementById('dropdown-clear-history-btn');
-
-    function openDropdown() {
-      if (!dropdown) return;
-      renderRecentSearches();
-      dropdown.classList.remove('opacity-0', 'invisible', 'translate-y-2', 'pointer-events-none');
-      dropdown.classList.add('opacity-100', 'visible', 'translate-y-0', 'pointer-events-auto');
-    }
-
-    function closeDropdown() {
-      if (!dropdown) return;
-      dropdown.classList.add('opacity-0', 'invisible', 'translate-y-2', 'pointer-events-none');
-      dropdown.classList.remove('opacity-100', 'visible', 'translate-y-0', 'pointer-events-auto');
-    }
 
     function getHistory() {
       try {
@@ -208,6 +190,7 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
       } catch (e) {}
+      renderAllRecentSearches();
     }
 
     function removeHistoryItem(query) {
@@ -216,127 +199,161 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
       } catch (e) {}
-      renderRecentSearches();
+      renderAllRecentSearches();
     }
 
     function clearAllHistory() {
       try {
         localStorage.removeItem(STORAGE_KEY);
       } catch (e) {}
-      renderRecentSearches();
+      renderAllRecentSearches();
     }
 
-    function renderRecentSearches() {
-      if (!recentSection || !recentList) return;
+    function renderAllRecentSearches() {
       const list = getHistory();
+      document.querySelectorAll('.smooth-search-container').forEach(container => {
+        const recentSection = container.querySelector('.dropdown-recent-section');
+        const recentList = container.querySelector('.dropdown-recent-list');
+        if (!recentSection || !recentList) return;
 
-      if (list.length === 0) {
-        recentSection.classList.add('hidden');
+        if (list.length === 0) {
+          recentSection.classList.add('hidden');
+          recentList.innerHTML = '';
+          return;
+        }
+
+        recentSection.classList.remove('hidden');
         recentList.innerHTML = '';
-        return;
-      }
 
-      recentSection.classList.remove('hidden');
-      recentList.innerHTML = '';
+        list.forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'group flex items-center justify-between py-1 hover:text-white cursor-pointer transition-colors';
 
-      list.forEach(item => {
-        const row = document.createElement('div');
-        row.className = 'group flex items-center justify-between py-1 hover:text-white cursor-pointer transition-colors';
+          const textLink = document.createElement('a');
+          textLink.href = '/search?q=' + encodeURIComponent(item);
+          textLink.className = 'text-xs md:text-sm text-gray-300 group-hover:text-white group-hover:translate-x-1 truncate flex-1 transition-all';
+          textLink.textContent = item;
+          textLink.addEventListener('click', () => {
+            saveHistory(item);
+          });
 
-        const textLink = document.createElement('a');
-        textLink.href = '/search?q=' + encodeURIComponent(item);
-        textLink.className = 'text-sm text-gray-300 group-hover:text-white group-hover:translate-x-1 truncate flex-1 transition-all';
-        textLink.textContent = item;
-        textLink.addEventListener('click', () => {
-          saveHistory(item);
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'text-gray-500 hover:text-red-400 p-1 rounded transition-colors ml-2';
+          delBtn.title = 'Hapus';
+          delBtn.innerHTML = `
+            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          `;
+          delBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            removeHistoryItem(item);
+          });
+
+          row.appendChild(textLink);
+          row.appendChild(delBtn);
+          recentList.appendChild(row);
         });
-
-        const delBtn = document.createElement('button');
-        delBtn.type = 'button';
-        delBtn.className = 'text-gray-500 hover:text-red-400 p-1 rounded transition-colors ml-2';
-        delBtn.title = 'Hapus';
-        delBtn.innerHTML = `
-          <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="18" y1="6" x2="6" y2="18"></line>
-            <line x1="6" y1="6" x2="18" y2="18"></line>
-          </svg>
-        `;
-        delBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          removeHistoryItem(item);
-        });
-
-        row.appendChild(textLink);
-        row.appendChild(delBtn);
-        recentList.appendChild(row);
       });
     }
 
-    function updateClearBtn() {
-      if (!clearBtn || !input) return;
-      if (input.value.length > 0) {
-        clearBtn.classList.remove('hidden');
-      } else {
-        clearBtn.classList.add('hidden');
-      }
+    function openDropdown(container) {
+      const dropdown = container.querySelector('.smooth-search-dropdown');
+      if (!dropdown) return;
+      renderAllRecentSearches();
+      dropdown.classList.remove('opacity-0', 'invisible', 'translate-y-2', 'pointer-events-none');
+      dropdown.classList.add('opacity-100', 'visible', 'translate-y-0', 'pointer-events-auto');
     }
 
-    // Input focus & click opens smooth dropdown
-    if (input) {
-      input.addEventListener('focus', openDropdown);
-      input.addEventListener('click', openDropdown);
-      input.addEventListener('input', updateClearBtn);
+    function closeDropdown(container) {
+      const dropdown = container.querySelector('.smooth-search-dropdown');
+      if (!dropdown) return;
+      dropdown.classList.add('opacity-0', 'invisible', 'translate-y-2', 'pointer-events-none');
+      dropdown.classList.remove('opacity-100', 'visible', 'translate-y-0', 'pointer-events-auto');
     }
 
-    // Clear input button
-    if (clearBtn && input) {
-      clearBtn.addEventListener('click', () => {
-        input.value = '';
+    function closeAllDropdowns() {
+      document.querySelectorAll('.smooth-search-container').forEach(closeDropdown);
+    }
+
+    function initContainers() {
+      document.querySelectorAll('.smooth-search-container').forEach(container => {
+        if (container.dataset.searchInitialized) return;
+        container.dataset.searchInitialized = 'true';
+
+        const form = container.querySelector('.smooth-search-form');
+        const input = container.querySelector('.smooth-search-input');
+        const clearBtn = container.querySelector('.smooth-clear-btn');
+        const clearHistoryBtn = container.querySelector('.dropdown-clear-history-btn');
+
+        function updateClearBtn() {
+          if (!clearBtn || !input) return;
+          if (input.value.length > 0) {
+            clearBtn.classList.remove('hidden');
+          } else {
+            clearBtn.classList.add('hidden');
+          }
+        }
+
+        if (input) {
+          input.addEventListener('focus', () => openDropdown(container));
+          input.addEventListener('click', () => openDropdown(container));
+          input.addEventListener('input', updateClearBtn);
+        }
+
+        if (clearBtn && input) {
+          clearBtn.addEventListener('click', () => {
+            input.value = '';
+            updateClearBtn();
+            input.focus();
+          });
+        }
+
+        if (form) {
+          form.addEventListener('submit', function() {
+            if (input && input.value) {
+              saveHistory(input.value);
+            }
+          });
+        }
+
+        if (clearHistoryBtn) {
+          clearHistoryBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearAllHistory();
+          });
+        }
+
+        container.querySelectorAll('.dropdown-search-link').forEach(link => {
+          link.addEventListener('click', function() {
+            const q = this.getAttribute('data-query');
+            if (q) saveHistory(q);
+          });
+        });
+
         updateClearBtn();
-        input.focus();
       });
     }
 
-    // Close on click outside
+    // Global click outside to close dropdowns
     document.addEventListener('click', function(e) {
-      if (container && !container.contains(e.target)) {
-        closeDropdown();
-      }
-    });
-
-    // Close on Escape key
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') {
-        closeDropdown();
-      }
-    });
-
-    // Form submit
-    if (form) {
-      form.addEventListener('submit', function() {
-        if (input && input.value) {
-          saveHistory(input.value);
+      document.querySelectorAll('.smooth-search-container').forEach(container => {
+        if (!container.contains(e.target)) {
+          closeDropdown(container);
         }
       });
-    }
-
-    // Trending item clicks
-    document.querySelectorAll('.dropdown-search-link').forEach(link => {
-      link.addEventListener('click', function() {
-        const q = this.getAttribute('data-query');
-        if (q) saveHistory(q);
-      });
     });
 
-    // Clear all history
-    if (clearHistoryBtn) {
-      clearHistoryBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        clearAllHistory();
-      });
-    }
+    // Global Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        closeAllDropdowns();
+      }
+    });
 
     // Auto-save search page query
     const urlParams = new URLSearchParams(window.location.search);
@@ -345,6 +362,14 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
       saveHistory(currentQ.trim());
     }
 
-    updateClearBtn();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        initContainers();
+        renderAllRecentSearches();
+      });
+    } else {
+      initContainers();
+      renderAllRecentSearches();
+    }
   })();
 </script>
