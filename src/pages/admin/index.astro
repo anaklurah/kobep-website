@@ -479,12 +479,84 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
             </div>
           </div>
 
+          <!-- Video Bulk Action Bar (Quick Actions) -->
+          <div id="video-bulk-action-bar" class="hidden bg-[#0e1420] border border-primary/40 p-3.5 rounded-xl flex-wrap items-center justify-between gap-3 shadow-xl transition-all">
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-primary/20 text-primary border border-primary/30 text-xs font-semibold">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                <span id="bulk-selected-count">0 video terpilih</span>
+              </div>
+              <button 
+                type="button" 
+                id="bulk-cancel-btn" 
+                class="text-xs text-slate-400 hover:text-white underline decoration-slate-600 hover:decoration-white transition-colors cursor-pointer"
+              >
+                Batal Pilihan
+              </button>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- Ganti Kategori Massal -->
+              <div class="flex items-center gap-1.5 bg-[#07090e] border border-slate-700/80 rounded-lg p-1">
+                <select id="bulk-category-select" class="bg-transparent text-xs text-slate-300 px-2 py-1 focus:outline-none cursor-pointer">
+                  <option value="" disabled selected>Pindah Kategori...</option>
+                  {categories.map((c) => (
+                    <option value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+                <button 
+                  type="button" 
+                  id="apply-bulk-category-btn"
+                  class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Terapkan
+                </button>
+              </div>
+
+              <!-- Tandai Unggulan Massal -->
+              <button 
+                type="button" 
+                id="apply-bulk-feature-btn"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-semibold transition-all cursor-pointer"
+              >
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+                </svg>
+                <span>Jadikan Unggulan</span>
+              </button>
+
+              <!-- Hapus Massal -->
+              <button 
+                type="button" 
+                id="apply-bulk-delete-btn"
+                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold shadow transition-all cursor-pointer"
+              >
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h18"></path>
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                </svg>
+                <span>Hapus Terpilih</span>
+              </button>
+            </div>
+          </div>
+
           <!-- Video Table View -->
           <div class="bg-[#0c1017] rounded-xl border border-slate-800/80 shadow-sm overflow-hidden">
             <div class="overflow-x-auto">
               <table class="w-full text-left text-xs text-slate-300">
                 <thead class="bg-[#090d14] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
                   <tr>
+                    <th class="py-3 px-3 w-10 text-center">
+                      <input 
+                        type="checkbox" 
+                        id="select-all-video-checkbox" 
+                        class="rounded border-slate-700 bg-[#07090e] accent-primary cursor-pointer w-4 h-4" 
+                        title="Pilih Semua Video"
+                      />
+                    </th>
                     <th class="py-3 px-4 font-semibold">Media</th>
                     <th class="py-3 px-4 font-semibold">Judul & Kategori</th>
                     <th class="py-3 px-4 font-semibold">Durasi</th>
@@ -495,7 +567,14 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
                 </thead>
                 <tbody class="divide-y divide-slate-800/60 font-sans" id="video-table-rows">
                   {videos.map((v) => (
-                    <tr class="admin-video-row hover:bg-slate-900/40 transition-colors" data-title={v.title.toLowerCase()} data-cat={v.category.toLowerCase()}>
+                    <tr class="admin-video-row hover:bg-slate-900/40 transition-colors" data-id={v.id} data-title={v.title.toLowerCase()} data-cat={v.category.toLowerCase()}>
+                      <td class="py-3 px-3 w-10 text-center">
+                        <input 
+                          type="checkbox" 
+                          class="video-row-checkbox rounded border-slate-700 bg-[#07090e] accent-primary cursor-pointer w-4 h-4" 
+                          data-id={v.id} 
+                        />
+                      </td>
                       <td class="py-3 px-4">
                         <div class="w-20 aspect-video rounded overflow-hidden bg-black border border-slate-800 relative">
                           <img src={v.thumbUrl} alt={v.title} class="w-full h-full object-cover" />
@@ -1670,6 +1749,7 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
             (row as HTMLElement).style.display = 'none';
           }
         });
+        if (typeof updateBulkBar === 'function') updateBulkBar();
       }
 
       if (videoSearch) videoSearch.addEventListener('input', filterVideoTable);
@@ -1852,6 +1932,204 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
           }
         });
       });
+
+      // Bulk Actions & Multi-Select for Video Table
+      const selectAllVideoCb = document.getElementById('select-all-video-checkbox') as HTMLInputElement | null;
+      const bulkActionBar = document.getElementById('video-bulk-action-bar');
+      const bulkSelectedCount = document.getElementById('bulk-selected-count');
+      const bulkCancelBtn = document.getElementById('bulk-cancel-btn');
+      const applyBulkCategoryBtn = document.getElementById('apply-bulk-category-btn') as HTMLButtonElement | null;
+      const bulkCategorySelect = document.getElementById('bulk-category-select') as HTMLSelectElement | null;
+      const applyBulkFeatureBtn = document.getElementById('apply-bulk-feature-btn') as HTMLButtonElement | null;
+      const applyBulkDeleteBtn = document.getElementById('apply-bulk-delete-btn') as HTMLButtonElement | null;
+
+      function getSelectedVideoCheckboxes(): HTMLInputElement[] {
+        return Array.from(document.querySelectorAll<HTMLInputElement>('.video-row-checkbox:checked'));
+      }
+
+      function getSelectedVideoIds(): string[] {
+        return getSelectedVideoCheckboxes()
+          .map((cb) => cb.getAttribute('data-id') || '')
+          .filter(Boolean);
+      }
+
+      function updateBulkBar() {
+        const selected = getSelectedVideoCheckboxes();
+        const count = selected.length;
+
+        const visibleRows = Array.from(document.querySelectorAll<HTMLElement>('.admin-video-row')).filter(
+          (row) => row.style.display !== 'none'
+        );
+        const visibleChecked = visibleRows.filter((row) => {
+          const cb = row.querySelector<HTMLInputElement>('.video-row-checkbox');
+          return cb && cb.checked;
+        });
+
+        if (selectAllVideoCb) {
+          if (visibleRows.length > 0 && visibleChecked.length === visibleRows.length) {
+            selectAllVideoCb.checked = true;
+            selectAllVideoCb.indeterminate = false;
+          } else if (visibleChecked.length > 0) {
+            selectAllVideoCb.checked = false;
+            selectAllVideoCb.indeterminate = true;
+          } else {
+            selectAllVideoCb.checked = false;
+            selectAllVideoCb.indeterminate = false;
+          }
+        }
+
+        if (bulkActionBar) {
+          if (count > 0) {
+            bulkActionBar.classList.remove('hidden');
+            bulkActionBar.classList.add('flex');
+            if (bulkSelectedCount) bulkSelectedCount.textContent = `${count} video terpilih`;
+          } else {
+            bulkActionBar.classList.add('hidden');
+            bulkActionBar.classList.remove('flex');
+          }
+        }
+      }
+
+      if (selectAllVideoCb) {
+        selectAllVideoCb.addEventListener('change', () => {
+          const isChecked = selectAllVideoCb.checked;
+          const visibleRows = Array.from(document.querySelectorAll<HTMLElement>('.admin-video-row')).filter(
+            (row) => row.style.display !== 'none'
+          );
+          visibleRows.forEach((row) => {
+            const cb = row.querySelector<HTMLInputElement>('.video-row-checkbox');
+            if (cb) cb.checked = isChecked;
+          });
+          updateBulkBar();
+        });
+      }
+
+      document.querySelectorAll<HTMLInputElement>('.video-row-checkbox').forEach((cb) => {
+        cb.addEventListener('change', updateBulkBar);
+      });
+
+      if (bulkCancelBtn) {
+        bulkCancelBtn.addEventListener('click', () => {
+          document.querySelectorAll<HTMLInputElement>('.video-row-checkbox').forEach((cb) => {
+            cb.checked = false;
+          });
+          if (selectAllVideoCb) {
+            selectAllVideoCb.checked = false;
+            selectAllVideoCb.indeterminate = false;
+          }
+          updateBulkBar();
+        });
+      }
+
+      // Bulk Delete Action
+      if (applyBulkDeleteBtn) {
+        applyBulkDeleteBtn.addEventListener('click', async () => {
+          const ids = getSelectedVideoIds();
+          if (ids.length === 0) return;
+
+          if (!confirm(`Hapus permanen ${ids.length} video yang dipilih dari basis data?`)) return;
+
+          const originalContent = applyBulkDeleteBtn.innerHTML;
+          applyBulkDeleteBtn.disabled = true;
+          applyBulkDeleteBtn.textContent = 'Menghapus...';
+
+          try {
+            const res = await fetch('/api/videos', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast(`${ids.length} video berhasil dihapus`);
+              setTimeout(() => window.location.reload(), 600);
+            } else {
+              showToast(data.error || 'Gagal menghapus video', true);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Terjadi kesalahan jaringan saat menghapus', true);
+          } finally {
+            applyBulkDeleteBtn.disabled = false;
+            applyBulkDeleteBtn.innerHTML = originalContent;
+          }
+        });
+      }
+
+      // Bulk Change Category Action
+      if (applyBulkCategoryBtn) {
+        applyBulkCategoryBtn.addEventListener('click', async () => {
+          const ids = getSelectedVideoIds();
+          const targetCat = bulkCategorySelect?.value;
+          if (ids.length === 0) return;
+          if (!targetCat) {
+            showToast('Silakan pilih kategori tujuan terlebih dahulu', true);
+            return;
+          }
+
+          if (!confirm(`Pindahkan ${ids.length} video terpilih ke kategori "${targetCat}"?`)) return;
+
+          const originalText = applyBulkCategoryBtn.textContent;
+          applyBulkCategoryBtn.disabled = true;
+          applyBulkCategoryBtn.textContent = 'Memproses...';
+
+          try {
+            const res = await fetch('/api/videos', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids, category: targetCat })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast(`Kategori ${ids.length} video berhasil diperbarui ke "${targetCat}"`);
+              setTimeout(() => window.location.reload(), 600);
+            } else {
+              showToast(data.error || 'Gagal memindahkan kategori', true);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Terjadi kesalahan saat memindahkan kategori', true);
+          } finally {
+            applyBulkCategoryBtn.disabled = false;
+            applyBulkCategoryBtn.textContent = originalText;
+          }
+        });
+      }
+
+      // Bulk Feature Action
+      if (applyBulkFeatureBtn) {
+        applyBulkFeatureBtn.addEventListener('click', async () => {
+          const ids = getSelectedVideoIds();
+          if (ids.length === 0) return;
+
+          if (!confirm(`Tandai ${ids.length} video terpilih sebagai Konten Unggulan?`)) return;
+
+          const originalContent = applyBulkFeatureBtn.innerHTML;
+          applyBulkFeatureBtn.disabled = true;
+          applyBulkFeatureBtn.textContent = 'Memproses...';
+
+          try {
+            const res = await fetch('/api/videos', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids, isFeatured: true })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast(`${ids.length} video berhasil ditandai sebagai Unggulan`);
+              setTimeout(() => window.location.reload(), 600);
+            } else {
+              showToast(data.error || 'Gagal memperbarui status unggulan', true);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Terjadi kesalahan saat memperbarui video', true);
+          } finally {
+            applyBulkFeatureBtn.disabled = false;
+            applyBulkFeatureBtn.innerHTML = originalContent;
+          }
+        });
+      }
 
       // Save Popunder Configuration
       const savePopunderBtn = document.getElementById('save-popunder-btn');

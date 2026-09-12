@@ -97,7 +97,27 @@ export const POST: APIRoute = async ({ request }) => {
 export const PUT: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
-    const { id, title, description, category, videoUrl, thumbUrl, duration, tags } = body;
+    const { id, ids, title, description, category, videoUrl, thumbUrl, duration, tags, isFeatured } = body;
+
+    const db = getDb();
+
+    // Bulk update support (category, isFeatured)
+    if (Array.isArray(ids) && ids.length > 0) {
+      const idSet = new Set(ids);
+      db.videos = db.videos.map((v) => {
+        if (!idSet.has(v.id)) return v;
+        return {
+          ...v,
+          category: category !== undefined ? category : v.category,
+          isFeatured: isFeatured !== undefined ? Boolean(isFeatured) : v.isFeatured
+        };
+      });
+      saveDb(db);
+      return new Response(JSON.stringify({ success: true, updatedCount: ids.length }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
 
     if (!id) {
       return new Response(JSON.stringify({ error: 'Video ID required' }), {
@@ -106,7 +126,6 @@ export const PUT: APIRoute = async ({ request }) => {
       });
     }
 
-    const db = getDb();
     const index = db.videos.findIndex((v) => v.id === id);
     if (index === -1) {
       return new Response(JSON.stringify({ error: 'Video not found' }), {
@@ -123,6 +142,7 @@ export const PUT: APIRoute = async ({ request }) => {
       videoUrl: videoUrl ?? db.videos[index].videoUrl,
       thumbUrl: thumbUrl ?? db.videos[index].thumbUrl,
       duration: duration ?? db.videos[index].duration,
+      isFeatured: isFeatured !== undefined ? Boolean(isFeatured) : db.videos[index].isFeatured,
       tags: tags ? (Array.isArray(tags) ? tags : tags.split(',').map((t: string) => t.trim())) : db.videos[index].tags
     };
 
@@ -143,22 +163,25 @@ export const PUT: APIRoute = async ({ request }) => {
 export const DELETE: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
-    const { id } = body;
+    const { id, ids } = body;
 
-    if (!id) {
-      return new Response(JSON.stringify({ error: 'Video ID required' }), {
+    const targetIds: string[] = Array.isArray(ids) ? ids : id ? [id] : [];
+
+    if (targetIds.length === 0) {
+      return new Response(JSON.stringify({ error: 'Video ID or IDs required' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
+    const idSet = new Set(targetIds);
     const db = getDb();
-    db.videos = db.videos.filter((v) => v.id !== id);
-    // Also remove comments for this video
-    db.comments = db.comments.filter((c) => c.videoId !== id);
+    db.videos = db.videos.filter((v) => !idSet.has(v.id));
+    // Also remove comments for these videos
+    db.comments = db.comments.filter((c) => !idSet.has(c.videoId));
     saveDb(db);
 
-    return new Response(JSON.stringify({ success: true, message: 'Video deleted' }), {
+    return new Response(JSON.stringify({ success: true, message: `${targetIds.length} video deleted`, deletedCount: targetIds.length }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
@@ -169,3 +192,4 @@ export const DELETE: APIRoute = async ({ request }) => {
     });
   }
 };
+
