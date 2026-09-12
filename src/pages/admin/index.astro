@@ -550,12 +550,13 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
                 <thead class="bg-[#090d14] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
                   <tr>
                     <th class="py-3 px-3 w-10 text-center">
-                      <input 
-                        type="checkbox" 
-                        id="select-all-video-checkbox" 
-                        class="rounded border-slate-700 bg-[#07090e] accent-primary cursor-pointer w-4 h-4" 
-                        title="Pilih Semua Video"
-                      />
+                      <label class="inline-flex items-center justify-center p-1 cursor-pointer" title="Pilih Semua Video">
+                        <input 
+                          type="checkbox" 
+                          id="select-all-video-checkbox" 
+                          class="rounded border border-slate-600 bg-slate-900 accent-purple-600 cursor-pointer w-4 h-4" 
+                        />
+                      </label>
                     </th>
                     <th class="py-3 px-4 font-semibold">Media</th>
                     <th class="py-3 px-4 font-semibold">Judul & Kategori</th>
@@ -569,11 +570,13 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
                   {videos.map((v) => (
                     <tr class="admin-video-row hover:bg-slate-900/40 transition-colors" data-id={v.id} data-title={v.title.toLowerCase()} data-cat={v.category.toLowerCase()}>
                       <td class="py-3 px-3 w-10 text-center">
-                        <input 
-                          type="checkbox" 
-                          class="video-row-checkbox rounded border-slate-700 bg-[#07090e] accent-primary cursor-pointer w-4 h-4" 
-                          data-id={v.id} 
-                        />
+                        <label class="inline-flex items-center justify-center p-1 cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            class="video-row-checkbox rounded border border-slate-600 bg-slate-900 accent-purple-600 cursor-pointer w-4 h-4" 
+                            data-id={v.id} 
+                          />
+                        </label>
                       </td>
                       <td class="py-3 px-4">
                         <div class="w-20 aspect-video rounded overflow-hidden bg-black border border-slate-800 relative">
@@ -1748,7 +1751,9 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
         });
       });
 
-      // Video Search, Category Filter & Pagination Logic
+      // =====================================================================
+      // VIDEO MANAGEMENT: SEARCH, FILTER, PAGINATION, MULTI-SELECT & BULK ACTIONS
+      // =====================================================================
       const videoSearch = document.getElementById('admin-video-search') as HTMLInputElement | null;
       const catFilter = document.getElementById('admin-video-cat-filter') as HTMLSelectElement | null;
       const videoPerPageSelect = document.getElementById('video-per-page-select') as HTMLSelectElement | null;
@@ -1756,8 +1761,62 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
       const videoPaginationControls = document.getElementById('video-pagination-controls');
       const videoRows = Array.from(document.querySelectorAll<HTMLElement>('.admin-video-row'));
 
+      const selectAllVideoCb = document.getElementById('select-all-video-checkbox') as HTMLInputElement | null;
+      const bulkActionBar = document.getElementById('video-bulk-action-bar');
+      const bulkSelectedCount = document.getElementById('bulk-selected-count');
+      const bulkCancelBtn = document.getElementById('bulk-cancel-btn');
+      const applyBulkCategoryBtn = document.getElementById('apply-bulk-category-btn') as HTMLButtonElement | null;
+      const bulkCategorySelect = document.getElementById('bulk-category-select') as HTMLSelectElement | null;
+      const applyBulkFeatureBtn = document.getElementById('apply-bulk-feature-btn') as HTMLButtonElement | null;
+      const applyBulkDeleteBtn = document.getElementById('apply-bulk-delete-btn') as HTMLButtonElement | null;
+
       let currentVideoPage = 1;
       let videosPerPage = 10;
+
+      function getSelectedVideoCheckboxes(): HTMLInputElement[] {
+        return Array.from(document.querySelectorAll<HTMLInputElement>('.video-row-checkbox:checked'));
+      }
+
+      function getSelectedVideoIds(): string[] {
+        return getSelectedVideoCheckboxes()
+          .map((cb) => cb.getAttribute('data-id') || '')
+          .filter(Boolean);
+      }
+
+      function updateBulkBar() {
+        const selected = getSelectedVideoCheckboxes();
+        const count = selected.length;
+
+        const visibleRows = videoRows.filter((row) => row.style.display !== 'none');
+        const visibleCheckboxes = visibleRows
+          .map((row) => row.querySelector<HTMLInputElement>('.video-row-checkbox'))
+          .filter((cb): cb is HTMLInputElement => cb !== null);
+        const visibleChecked = visibleCheckboxes.filter((cb) => cb.checked);
+
+        if (selectAllVideoCb) {
+          if (visibleCheckboxes.length > 0 && visibleChecked.length === visibleCheckboxes.length) {
+            selectAllVideoCb.checked = true;
+            selectAllVideoCb.indeterminate = false;
+          } else if (visibleChecked.length > 0) {
+            selectAllVideoCb.checked = false;
+            selectAllVideoCb.indeterminate = true;
+          } else {
+            selectAllVideoCb.checked = false;
+            selectAllVideoCb.indeterminate = false;
+          }
+        }
+
+        if (bulkActionBar) {
+          if (count > 0) {
+            bulkActionBar.classList.remove('hidden');
+            bulkActionBar.classList.add('flex');
+            if (bulkSelectedCount) bulkSelectedCount.textContent = `${count} video terpilih`;
+          } else {
+            bulkActionBar.classList.add('hidden');
+            bulkActionBar.classList.remove('flex');
+          }
+        }
+      }
 
       function renderVideoPagination(totalPages: number) {
         if (!videoPaginationControls) return;
@@ -1841,13 +1900,13 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
       }
 
       function renderVideoTable() {
-        const query = videoSearch ? videoSearch.value.toLowerCase().trim() : '';
-        const selectedCat = catFilter ? catFilter.value.toLowerCase().trim() : '';
+        const query = (videoSearch?.value || '').toLowerCase().trim();
+        const selectedCat = (catFilter?.value || '').toLowerCase().trim();
 
         // Filter baris yang cocok dengan search query dan kategori aktif
         const matchingRows = videoRows.filter((row) => {
-          const title = row.getAttribute('data-title') || '';
-          const cat = row.getAttribute('data-cat') || '';
+          const title = (row.getAttribute('data-title') || '').toLowerCase();
+          const cat = (row.getAttribute('data-cat') || '').toLowerCase();
           const matchesQuery = !query || title.includes(query);
           const matchesCat = !selectedCat || cat === selectedCat;
           return matchesQuery && matchesCat;
@@ -1883,10 +1942,10 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
         }
 
         renderVideoPagination(totalPages);
-
-        if (typeof updateBulkBar === 'function') updateBulkBar();
+        updateBulkBar();
       }
 
+      // Event listeners for Video Table
       if (videoSearch) {
         videoSearch.addEventListener('input', () => {
           currentVideoPage = 1;
@@ -1909,7 +1968,149 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
         });
       }
 
-      // Jalankan inisialisasi pagination pertama kali
+      // Select All Checkbox Handler
+      if (selectAllVideoCb) {
+        selectAllVideoCb.addEventListener('change', () => {
+          const isChecked = selectAllVideoCb.checked;
+          const visibleRows = videoRows.filter((row) => row.style.display !== 'none');
+          visibleRows.forEach((row) => {
+            const cb = row.querySelector<HTMLInputElement>('.video-row-checkbox');
+            if (cb) cb.checked = isChecked;
+          });
+          updateBulkBar();
+        });
+      }
+
+      // Individual Row Checkboxes
+      document.querySelectorAll<HTMLInputElement>('.video-row-checkbox').forEach((cb) => {
+        cb.addEventListener('change', updateBulkBar);
+      });
+
+      // Cancel Selection Button
+      if (bulkCancelBtn) {
+        bulkCancelBtn.addEventListener('click', () => {
+          document.querySelectorAll<HTMLInputElement>('.video-row-checkbox').forEach((cb) => {
+            cb.checked = false;
+          });
+          if (selectAllVideoCb) {
+            selectAllVideoCb.checked = false;
+            selectAllVideoCb.indeterminate = false;
+          }
+          updateBulkBar();
+        });
+      }
+
+      // Bulk Delete Action
+      if (applyBulkDeleteBtn) {
+        applyBulkDeleteBtn.addEventListener('click', async () => {
+          const ids = getSelectedVideoIds();
+          if (ids.length === 0) return;
+
+          if (!confirm(`Hapus permanen ${ids.length} video yang dipilih dari basis data?`)) return;
+
+          const originalContent = applyBulkDeleteBtn.innerHTML;
+          applyBulkDeleteBtn.disabled = true;
+          applyBulkDeleteBtn.textContent = 'Menghapus...';
+
+          try {
+            const res = await fetch('/api/videos', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast(`${ids.length} video berhasil dihapus`);
+              setTimeout(() => window.location.reload(), 600);
+            } else {
+              showToast(data.error || 'Gagal menghapus video', true);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Terjadi kesalahan jaringan saat menghapus', true);
+          } finally {
+            applyBulkDeleteBtn.disabled = false;
+            applyBulkDeleteBtn.innerHTML = originalContent;
+          }
+        });
+      }
+
+      // Bulk Change Category Action
+      if (applyBulkCategoryBtn) {
+        applyBulkCategoryBtn.addEventListener('click', async () => {
+          const ids = getSelectedVideoIds();
+          const targetCat = bulkCategorySelect?.value;
+          if (ids.length === 0) return;
+          if (!targetCat) {
+            showToast('Silakan pilih kategori tujuan terlebih dahulu', true);
+            return;
+          }
+
+          if (!confirm(`Pindahkan ${ids.length} video terpilih ke kategori "${targetCat}"?`)) return;
+
+          const originalText = applyBulkCategoryBtn.textContent;
+          applyBulkCategoryBtn.disabled = true;
+          applyBulkCategoryBtn.textContent = 'Memproses...';
+
+          try {
+            const res = await fetch('/api/videos', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids, category: targetCat })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast(`Kategori ${ids.length} video berhasil diperbarui ke "${targetCat}"`);
+              setTimeout(() => window.location.reload(), 600);
+            } else {
+              showToast(data.error || 'Gagal memindahkan kategori', true);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Terjadi kesalahan saat memindahkan kategori', true);
+          } finally {
+            applyBulkCategoryBtn.disabled = false;
+            applyBulkCategoryBtn.textContent = originalText;
+          }
+        });
+      }
+
+      // Bulk Feature Action
+      if (applyBulkFeatureBtn) {
+        applyBulkFeatureBtn.addEventListener('click', async () => {
+          const ids = getSelectedVideoIds();
+          if (ids.length === 0) return;
+
+          if (!confirm(`Tandai ${ids.length} video terpilih sebagai Konten Unggulan?`)) return;
+
+          const originalContent = applyBulkFeatureBtn.innerHTML;
+          applyBulkFeatureBtn.disabled = true;
+          applyBulkFeatureBtn.textContent = 'Memproses...';
+
+          try {
+            const res = await fetch('/api/videos', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids, isFeatured: true })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast(`${ids.length} video berhasil ditandai sebagai Unggulan`);
+              setTimeout(() => window.location.reload(), 600);
+            } else {
+              showToast(data.error || 'Gagal memperbarui status unggulan', true);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Terjadi kesalahan saat memperbarui video', true);
+          } finally {
+            applyBulkFeatureBtn.disabled = false;
+            applyBulkFeatureBtn.innerHTML = originalContent;
+          }
+        });
+      }
+
+      // Inisialisasi tabel video
       renderVideoTable();
 
       // Color Picker & Presets
@@ -2089,204 +2290,6 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
           }
         });
       });
-
-      // Bulk Actions & Multi-Select for Video Table
-      const selectAllVideoCb = document.getElementById('select-all-video-checkbox') as HTMLInputElement | null;
-      const bulkActionBar = document.getElementById('video-bulk-action-bar');
-      const bulkSelectedCount = document.getElementById('bulk-selected-count');
-      const bulkCancelBtn = document.getElementById('bulk-cancel-btn');
-      const applyBulkCategoryBtn = document.getElementById('apply-bulk-category-btn') as HTMLButtonElement | null;
-      const bulkCategorySelect = document.getElementById('bulk-category-select') as HTMLSelectElement | null;
-      const applyBulkFeatureBtn = document.getElementById('apply-bulk-feature-btn') as HTMLButtonElement | null;
-      const applyBulkDeleteBtn = document.getElementById('apply-bulk-delete-btn') as HTMLButtonElement | null;
-
-      function getSelectedVideoCheckboxes(): HTMLInputElement[] {
-        return Array.from(document.querySelectorAll<HTMLInputElement>('.video-row-checkbox:checked'));
-      }
-
-      function getSelectedVideoIds(): string[] {
-        return getSelectedVideoCheckboxes()
-          .map((cb) => cb.getAttribute('data-id') || '')
-          .filter(Boolean);
-      }
-
-      function updateBulkBar() {
-        const selected = getSelectedVideoCheckboxes();
-        const count = selected.length;
-
-        const visibleRows = Array.from(document.querySelectorAll<HTMLElement>('.admin-video-row')).filter(
-          (row) => row.style.display !== 'none'
-        );
-        const visibleChecked = visibleRows.filter((row) => {
-          const cb = row.querySelector<HTMLInputElement>('.video-row-checkbox');
-          return cb && cb.checked;
-        });
-
-        if (selectAllVideoCb) {
-          if (visibleRows.length > 0 && visibleChecked.length === visibleRows.length) {
-            selectAllVideoCb.checked = true;
-            selectAllVideoCb.indeterminate = false;
-          } else if (visibleChecked.length > 0) {
-            selectAllVideoCb.checked = false;
-            selectAllVideoCb.indeterminate = true;
-          } else {
-            selectAllVideoCb.checked = false;
-            selectAllVideoCb.indeterminate = false;
-          }
-        }
-
-        if (bulkActionBar) {
-          if (count > 0) {
-            bulkActionBar.classList.remove('hidden');
-            bulkActionBar.classList.add('flex');
-            if (bulkSelectedCount) bulkSelectedCount.textContent = `${count} video terpilih`;
-          } else {
-            bulkActionBar.classList.add('hidden');
-            bulkActionBar.classList.remove('flex');
-          }
-        }
-      }
-
-      if (selectAllVideoCb) {
-        selectAllVideoCb.addEventListener('change', () => {
-          const isChecked = selectAllVideoCb.checked;
-          const visibleRows = Array.from(document.querySelectorAll<HTMLElement>('.admin-video-row')).filter(
-            (row) => row.style.display !== 'none'
-          );
-          visibleRows.forEach((row) => {
-            const cb = row.querySelector<HTMLInputElement>('.video-row-checkbox');
-            if (cb) cb.checked = isChecked;
-          });
-          updateBulkBar();
-        });
-      }
-
-      document.querySelectorAll<HTMLInputElement>('.video-row-checkbox').forEach((cb) => {
-        cb.addEventListener('change', updateBulkBar);
-      });
-
-      if (bulkCancelBtn) {
-        bulkCancelBtn.addEventListener('click', () => {
-          document.querySelectorAll<HTMLInputElement>('.video-row-checkbox').forEach((cb) => {
-            cb.checked = false;
-          });
-          if (selectAllVideoCb) {
-            selectAllVideoCb.checked = false;
-            selectAllVideoCb.indeterminate = false;
-          }
-          updateBulkBar();
-        });
-      }
-
-      // Bulk Delete Action
-      if (applyBulkDeleteBtn) {
-        applyBulkDeleteBtn.addEventListener('click', async () => {
-          const ids = getSelectedVideoIds();
-          if (ids.length === 0) return;
-
-          if (!confirm(`Hapus permanen ${ids.length} video yang dipilih dari basis data?`)) return;
-
-          const originalContent = applyBulkDeleteBtn.innerHTML;
-          applyBulkDeleteBtn.disabled = true;
-          applyBulkDeleteBtn.textContent = 'Menghapus...';
-
-          try {
-            const res = await fetch('/api/videos', {
-              method: 'DELETE',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ids })
-            });
-            const data = await res.json();
-            if (data.success) {
-              showToast(`${ids.length} video berhasil dihapus`);
-              setTimeout(() => window.location.reload(), 600);
-            } else {
-              showToast(data.error || 'Gagal menghapus video', true);
-            }
-          } catch (err) {
-            console.error(err);
-            showToast('Terjadi kesalahan jaringan saat menghapus', true);
-          } finally {
-            applyBulkDeleteBtn.disabled = false;
-            applyBulkDeleteBtn.innerHTML = originalContent;
-          }
-        });
-      }
-
-      // Bulk Change Category Action
-      if (applyBulkCategoryBtn) {
-        applyBulkCategoryBtn.addEventListener('click', async () => {
-          const ids = getSelectedVideoIds();
-          const targetCat = bulkCategorySelect?.value;
-          if (ids.length === 0) return;
-          if (!targetCat) {
-            showToast('Silakan pilih kategori tujuan terlebih dahulu', true);
-            return;
-          }
-
-          if (!confirm(`Pindahkan ${ids.length} video terpilih ke kategori "${targetCat}"?`)) return;
-
-          const originalText = applyBulkCategoryBtn.textContent;
-          applyBulkCategoryBtn.disabled = true;
-          applyBulkCategoryBtn.textContent = 'Memproses...';
-
-          try {
-            const res = await fetch('/api/videos', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ids, category: targetCat })
-            });
-            const data = await res.json();
-            if (data.success) {
-              showToast(`Kategori ${ids.length} video berhasil diperbarui ke "${targetCat}"`);
-              setTimeout(() => window.location.reload(), 600);
-            } else {
-              showToast(data.error || 'Gagal memindahkan kategori', true);
-            }
-          } catch (err) {
-            console.error(err);
-            showToast('Terjadi kesalahan saat memindahkan kategori', true);
-          } finally {
-            applyBulkCategoryBtn.disabled = false;
-            applyBulkCategoryBtn.textContent = originalText;
-          }
-        });
-      }
-
-      // Bulk Feature Action
-      if (applyBulkFeatureBtn) {
-        applyBulkFeatureBtn.addEventListener('click', async () => {
-          const ids = getSelectedVideoIds();
-          if (ids.length === 0) return;
-
-          if (!confirm(`Tandai ${ids.length} video terpilih sebagai Konten Unggulan?`)) return;
-
-          const originalContent = applyBulkFeatureBtn.innerHTML;
-          applyBulkFeatureBtn.disabled = true;
-          applyBulkFeatureBtn.textContent = 'Memproses...';
-
-          try {
-            const res = await fetch('/api/videos', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ ids, isFeatured: true })
-            });
-            const data = await res.json();
-            if (data.success) {
-              showToast(`${ids.length} video berhasil ditandai sebagai Unggulan`);
-              setTimeout(() => window.location.reload(), 600);
-            } else {
-              showToast(data.error || 'Gagal memperbarui status unggulan', true);
-            }
-          } catch (err) {
-            console.error(err);
-            showToast('Terjadi kesalahan saat memperbarui video', true);
-          } finally {
-            applyBulkFeatureBtn.disabled = false;
-            applyBulkFeatureBtn.innerHTML = originalContent;
-          }
-        });
-      }
 
       // Save Popunder Configuration
       const savePopunderBtn = document.getElementById('save-popunder-btn');
