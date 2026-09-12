@@ -12,7 +12,10 @@
     "author": "KingBokep",
     "headScripts": "",
     "telegramLink": "https://t.me/Nyalaporn",
-    "adminPin": "123456"
+    "adminPin": "123456",
+    "popunderUrl": "",
+    "popunderEnabled": false,
+    "popunderFrequencyHours": 6
   },
   "adminAuth": {
     "username": "adminkd",
@@ -32,66 +35,59 @@
       "id": "cat-1",
       "name": "Bokep Indo",
       "slug": "bokep-indo",
-      "description": "Koleksi video Indonesia terpopuler"
+      "description": "Koleksi video Indonesia terpopuler",
+      "order": 0
     },
     {
       "id": "cat-2",
       "name": "Indo Viral",
       "slug": "indo-viral",
-      "description": "Video skandal viral terupdate"
+      "description": "Video skandal viral terupdate",
+      "order": 1
     },
     {
       "id": "cat-3",
       "name": "Bokep Jepang",
       "slug": "bokep-jepang",
-      "description": "JAV dan uncensored terbaik"
+      "description": "JAV dan uncensored terbaik",
+      "order": 2
     },
     {
       "id": "cat-4",
       "name": "JAV Sub Indo",
       "slug": "jav-sub-indo",
-      "description": "Video subtitle Indonesia"
+      "description": "Video subtitle Indonesia",
+      "order": 3
     },
     {
       "id": "cat-5",
       "name": "Skandal",
       "slug": "skandal",
-      "description": "Rekaman amatir viral"
+      "description": "Rekaman amatir viral",
+      "order": 4
     },
     {
       "id": "cat-1789196803309",
       "name": "Cewek Manado",
       "slug": "cewek-manado",
-      "description": "Koleksi manis cewek Manado"
+      "description": "Koleksi manis cewek Manado",
+      "order": 5
     }
   ],
   "videos": [
-    {
-      "id": "vid-1789197129621",
-      "title": "test video 1",
-      "slug": "test-video-1-9621",
-      "description": "adgjhmnagwkdhsa",
-      "category": "Bokep Indo",
-      "videoUrl": "/uploads/videos/videos-document-6066403085238934200-1789197129591.mp4",
-      "thumbUrl": "/uploads/thumbs/thumbs-ganti-logo-di-dada-menjadi-20260912115952-1789197129610.jpeg",
-      "duration": "00:46",
-      "views": 0,
-      "likes": 1,
-      "createdAt": "2026-09-12T07:12:09.621Z",
-      "tags": []
-    },
     {
       "id": "vid-1789197084814",
       "title": "test video 1",
       "slug": "test-video-1-4814",
       "description": "test video deskripsi",
-      "category": "Bokep Indo",
       "videoUrl": "/uploads/videos/videos-document-6066403085238934200-1789197084776.mp4",
       "thumbUrl": "https://cdn.kingbokep.video/thumbs/kolpri-kak-anjani-pemain-basket.webp",
       "duration": "00:46",
+      "category": "Bokep Indo",
       "views": 0,
       "likes": 0,
       "createdAt": "2026-09-12T07:11:24.814Z",
+      "isFeatured": false,
       "tags": []
     },
     {
@@ -99,35 +95,18 @@
       "title": "Skandal Manado Viral Cantik Mulus",
       "slug": "skandal-manado-viral-cantik-mulus-9089",
       "description": "Video viral terbaru cewek Manado kulit putih mulus.",
-      "category": "Cewek Manado",
       "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
       "thumbUrl": "https://cdn.kingbokep.video/thumbs/abg-hijab-cakep-buka-jilbab-benerin-tetek.webp",
       "duration": "06:45",
+      "category": "Cewek Manado",
       "views": 0,
       "likes": 0,
       "createdAt": "2026-09-12T07:06:49.089Z",
+      "isFeatured": false,
       "tags": [
         "manado",
         "viral",
         "skandal"
-      ]
-    },
-    {
-      "id": "vid-1",
-      "title": "Kolpri Kak Anjani Pemain Basket",
-      "slug": "kolpri-kak-anjani-pemain-basket",
-      "description": "Rekaman video eksklusif Kak Anjani pemain basket viral terbaru.",
-      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-      "thumbUrl": "https://cdn.kingbokep.video/thumbs/kolpri-kak-anjani-pemain-basket.webp",
-      "duration": "02:14",
-      "category": "Indo Viral",
-      "views": 14250,
-      "likes": 890,
-      "createdAt": "2026-09-10T10:00:00Z",
-      "tags": [
-        "viral",
-        "anjani",
-        "basket"
       ]
     },
     {
@@ -142,10 +121,30 @@
       "views": 18320,
       "likes": 1240,
       "createdAt": "2026-09-10T12:30:00Z",
+      "isFeatured": false,
       "tags": [
         "indo",
         "dewi",
         "pacar"
+      ]
+    },
+    {
+      "id": "vid-1",
+      "title": "Kolpri Kak Anjani Pemain Basket",
+      "slug": "kolpri-kak-anjani-pemain-basket",
+      "description": "Rekaman video eksklusif Kak Anjani pemain basket viral terbaru.",
+      "videoUrl": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+      "thumbUrl": "https://cdn.kingbokep.video/thumbs/kolpri-kak-anjani-pemain-basket.webp",
+      "duration": "02:14",
+      "category": "Indo Viral",
+      "views": 14250,
+      "likes": 890,
+      "createdAt": "2026-09-10T10:00:00Z",
+      "isFeatured": false,
+      "tags": [
+        "viral",
+        "anjani",
+        "basket"
       ]
     },
     {
@@ -160,6 +159,7 @@
       "views": 22100,
       "likes": 1650,
       "createdAt": "2026-09-09T15:20:00Z",
+      "isFeatured": false,
       "tags": [
         "fisip",
         "montok",
@@ -178,6 +178,7 @@
       "views": 31400,
       "likes": 2190,
       "createdAt": "2026-09-08T08:15:00Z",
+      "isFeatured": false,
       "tags": [
         "subuh",
         "ponakan",
@@ -196,6 +197,7 @@
       "views": 19800,
       "likes": 1410,
       "createdAt": "2026-09-07T21:40:00Z",
+      "isFeatured": false,
       "tags": [
         "gen-z",
         "parkiran",
@@ -214,6 +216,7 @@
       "views": 27500,
       "likes": 1890,
       "createdAt": "2026-09-06T19:10:00Z",
+      "isFeatured": false,
       "tags": [
         "hijab",
         "influencer",
@@ -232,6 +235,7 @@
       "views": 24300,
       "likes": 1730,
       "createdAt": "2026-09-05T14:30:00Z",
+      "isFeatured": false,
       "tags": [
         "delia",
         "selebgram",
@@ -250,6 +254,7 @@
       "views": 38900,
       "likes": 2950,
       "createdAt": "2026-09-04T11:00:00Z",
+      "isFeatured": false,
       "tags": [
         "guru",
         "jilbab",
@@ -268,6 +273,7 @@
       "views": 16700,
       "likes": 1120,
       "createdAt": "2026-09-03T16:45:00Z",
+      "isFeatured": false,
       "tags": [
         "desahan",
         "guru"
@@ -285,6 +291,7 @@
       "views": 34100,
       "likes": 2410,
       "createdAt": "2026-09-02T13:20:00Z",
+      "isFeatured": false,
       "tags": [
         "tante",
         "cindo",
@@ -325,13 +332,13 @@
       "likes": 0
     },
     {
-      "id": "comm-1",
-      "videoId": "vid-1",
-      "authorName": "Rian99",
-      "authorAvatar": "https://api.dicebear.com/7.x/bottts/svg?seed=Rian99",
-      "content": "Gila mantap banget update-nya min, jernih parah!",
-      "createdAt": "2026-09-11T09:20:00Z",
-      "likes": 15
+      "id": "comm-3",
+      "videoId": "vid-2",
+      "authorName": "Budi_Santoso",
+      "authorAvatar": "https://api.dicebear.com/7.x/bottts/svg?seed=Budi_Santoso",
+      "content": "Websitenya enteng banget pas dipake nonton, ga buffering sama sekali.",
+      "createdAt": "2026-09-11T14:10:00Z",
+      "likes": 12
     },
     {
       "id": "comm-2",
@@ -343,13 +350,13 @@
       "likes": 8
     },
     {
-      "id": "comm-3",
-      "videoId": "vid-2",
-      "authorName": "Budi_Santoso",
-      "authorAvatar": "https://api.dicebear.com/7.x/bottts/svg?seed=Budi_Santoso",
-      "content": "Websitenya enteng banget pas dipake nonton, ga buffering sama sekali.",
-      "createdAt": "2026-09-11T14:10:00Z",
-      "likes": 12
+      "id": "comm-1",
+      "videoId": "vid-1",
+      "authorName": "Rian99",
+      "authorAvatar": "https://api.dicebear.com/7.x/bottts/svg?seed=Rian99",
+      "content": "Gila mantap banget update-nya min, jernih parah!",
+      "createdAt": "2026-09-11T09:20:00Z",
+      "likes": 15
     }
   ],
   "analytics": {

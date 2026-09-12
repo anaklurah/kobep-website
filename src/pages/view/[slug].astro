@@ -36,6 +36,14 @@ const topTrendingVideos = db.videos
   .slice(0, 6);
 
 const isEmbed = video.videoUrl.includes('embed') || video.videoUrl.includes('iframe') || video.videoUrl.includes('eporner.com');
+
+// Gunakan clean proxy player untuk video Eporner agar logo, watermark, dan tombol download hilang
+let playerEmbedUrl = video.videoUrl;
+if (isEmbed && (video.videoUrl.includes('eporner.com') || video.id.startsWith('ep-'))) {
+  const epMatch = video.videoUrl.match(/embed\/([a-zA-Z0-9]+)/) || video.videoUrl.match(/video-([a-zA-Z0-9]+)/);
+  const cleanEpId = epMatch?.[1] || video.id.replace(/^ep-/, '');
+  playerEmbedUrl = `/api/eporner/embed/${cleanEpId}`;
+}
 ---
 
 <Layout 
@@ -55,7 +63,7 @@ const isEmbed = video.videoUrl.includes('embed') || video.videoUrl.includes('ifr
         <div class="w-full bg-black rounded-xl overflow-hidden border border-gray-800 shadow-2xl relative aspect-video">
           {isEmbed ? (
             <iframe 
-              src={video.videoUrl} 
+              src={playerEmbedUrl} 
               allowfullscreen 
               allow="autoplay; fullscreen"
               class="w-full h-full border-0"
