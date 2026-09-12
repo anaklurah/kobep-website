@@ -627,6 +627,27 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
                 </tbody>
               </table>
             </div>
+
+            <!-- Video Table Pagination Footer -->
+            <div id="video-table-pagination" class="px-4 py-3 bg-[#090d14] border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+              <div class="flex items-center gap-3">
+                <span id="video-pagination-info" class="font-medium text-slate-300">Menampilkan 1 - 10 dari {videos.length} video</span>
+                <div class="flex items-center gap-1.5 border-l border-slate-800 pl-3">
+                  <label for="video-per-page-select" class="text-[11px] text-slate-500">Per halaman:</label>
+                  <select id="video-per-page-select" class="bg-[#07090e] border border-slate-700/80 rounded px-2 py-0.5 text-xs text-slate-300 focus:outline-none focus:border-primary cursor-pointer">
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Pagination Navigation Buttons -->
+              <div class="flex items-center gap-1" id="video-pagination-controls">
+                <!-- Tombol Prev, Angka Halaman, Next diisi oleh JS -->
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1727,33 +1748,169 @@ const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
         });
       });
 
-      // Video Search & Category Filter
-      const videoSearch = document.getElementById('admin-video-search') as HTMLInputElement;
-      const catFilter = document.getElementById('admin-video-cat-filter') as HTMLSelectElement;
-      const videoRows = document.querySelectorAll('.admin-video-row');
+      // Video Search, Category Filter & Pagination Logic
+      const videoSearch = document.getElementById('admin-video-search') as HTMLInputElement | null;
+      const catFilter = document.getElementById('admin-video-cat-filter') as HTMLSelectElement | null;
+      const videoPerPageSelect = document.getElementById('video-per-page-select') as HTMLSelectElement | null;
+      const videoPaginationInfo = document.getElementById('video-pagination-info');
+      const videoPaginationControls = document.getElementById('video-pagination-controls');
+      const videoRows = Array.from(document.querySelectorAll<HTMLElement>('.admin-video-row'));
 
-      function filterVideoTable() {
+      let currentVideoPage = 1;
+      let videosPerPage = 10;
+
+      function renderVideoPagination(totalPages: number) {
+        if (!videoPaginationControls) return;
+        videoPaginationControls.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        // Tombol Prev
+        const prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.title = 'Halaman Sebelumnya';
+        prevBtn.className = currentVideoPage > 1
+          ? 'px-2.5 py-1 rounded border border-slate-800 bg-[#07090e] hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer text-xs flex items-center gap-1'
+          : 'px-2.5 py-1 rounded border border-slate-800/60 bg-transparent text-slate-600 cursor-not-allowed text-xs flex items-center gap-1';
+        prevBtn.disabled = currentVideoPage <= 1;
+        prevBtn.innerHTML = `<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg><span class="hidden sm:inline">Prev</span>`;
+        prevBtn.addEventListener('click', () => {
+          if (currentVideoPage > 1) {
+            currentVideoPage--;
+            renderVideoTable();
+          }
+        });
+        videoPaginationControls.appendChild(prevBtn);
+
+        // Algoritma Penomoran Halaman Responsif
+        const pages: (number | string)[] = [];
+        if (totalPages <= 7) {
+          for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+          pages.push(1);
+          if (currentVideoPage > 3) pages.push('...');
+          const start = Math.max(2, currentVideoPage - 1);
+          const end = Math.min(totalPages - 1, currentVideoPage + 1);
+          for (let i = start; i <= end; i++) {
+            if (!pages.includes(i)) pages.push(i);
+          }
+          if (currentVideoPage < totalPages - 2) pages.push('...');
+          pages.push(totalPages);
+        }
+
+        pages.forEach((p) => {
+          if (p === '...') {
+            const dots = document.createElement('span');
+            dots.className = 'px-1.5 text-slate-600 font-mono text-xs select-none';
+            dots.textContent = '...';
+            videoPaginationControls.appendChild(dots);
+          } else {
+            const pageNum = Number(p);
+            const pageBtn = document.createElement('button');
+            pageBtn.type = 'button';
+            if (pageNum === currentVideoPage) {
+              pageBtn.className = 'px-2.5 py-1 rounded border border-primary/50 bg-primary/20 text-primary font-mono font-bold text-xs shadow-sm';
+            } else {
+              pageBtn.className = 'px-2.5 py-1 rounded border border-slate-800 bg-[#07090e] hover:bg-slate-800 text-slate-300 font-mono text-xs transition-colors cursor-pointer';
+            }
+            pageBtn.textContent = String(pageNum);
+            pageBtn.addEventListener('click', () => {
+              currentVideoPage = pageNum;
+              renderVideoTable();
+            });
+            videoPaginationControls.appendChild(pageBtn);
+          }
+        });
+
+        // Tombol Next
+        const nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
+        nextBtn.title = 'Halaman Berikutnya';
+        nextBtn.className = currentVideoPage < totalPages
+          ? 'px-2.5 py-1 rounded border border-slate-800 bg-[#07090e] hover:bg-slate-800 text-slate-300 transition-colors cursor-pointer text-xs flex items-center gap-1'
+          : 'px-2.5 py-1 rounded border border-slate-800/60 bg-transparent text-slate-600 cursor-not-allowed text-xs flex items-center gap-1';
+        nextBtn.disabled = currentVideoPage >= totalPages;
+        nextBtn.innerHTML = `<span class="hidden sm:inline">Next</span><svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>`;
+        nextBtn.addEventListener('click', () => {
+          if (currentVideoPage < totalPages) {
+            currentVideoPage++;
+            renderVideoTable();
+          }
+        });
+        videoPaginationControls.appendChild(nextBtn);
+      }
+
+      function renderVideoTable() {
         const query = videoSearch ? videoSearch.value.toLowerCase().trim() : '';
         const selectedCat = catFilter ? catFilter.value.toLowerCase().trim() : '';
 
-        videoRows.forEach((row) => {
+        // Filter baris yang cocok dengan search query dan kategori aktif
+        const matchingRows = videoRows.filter((row) => {
           const title = row.getAttribute('data-title') || '';
           const cat = row.getAttribute('data-cat') || '';
-
           const matchesQuery = !query || title.includes(query);
           const matchesCat = !selectedCat || cat === selectedCat;
-
-          if (matchesQuery && matchesCat) {
-            (row as HTMLElement).style.display = '';
-          } else {
-            (row as HTMLElement).style.display = 'none';
-          }
+          return matchesQuery && matchesCat;
         });
+
+        const totalMatching = matchingRows.length;
+        const totalPages = Math.max(1, Math.ceil(totalMatching / videosPerPage));
+
+        if (currentVideoPage > totalPages) currentVideoPage = totalPages;
+        if (currentVideoPage < 1) currentVideoPage = 1;
+
+        const startIndex = (currentVideoPage - 1) * videosPerPage;
+        const endIndex = Math.min(startIndex + videosPerPage, totalMatching);
+
+        // Sembunyikan semua baris
+        videoRows.forEach((row) => {
+          row.style.display = 'none';
+        });
+
+        // Tampilkan hanya baris pada halaman saat ini
+        const visibleSlice = matchingRows.slice(startIndex, endIndex);
+        visibleSlice.forEach((row) => {
+          row.style.display = '';
+        });
+
+        // Perbarui teks informasi pagination
+        if (videoPaginationInfo) {
+          if (totalMatching === 0) {
+            videoPaginationInfo.textContent = 'Tidak ada video yang cocok';
+          } else {
+            videoPaginationInfo.textContent = `Menampilkan ${startIndex + 1} - ${endIndex} dari ${totalMatching} video`;
+          }
+        }
+
+        renderVideoPagination(totalPages);
+
         if (typeof updateBulkBar === 'function') updateBulkBar();
       }
 
-      if (videoSearch) videoSearch.addEventListener('input', filterVideoTable);
-      if (catFilter) catFilter.addEventListener('change', filterVideoTable);
+      if (videoSearch) {
+        videoSearch.addEventListener('input', () => {
+          currentVideoPage = 1;
+          renderVideoTable();
+        });
+      }
+
+      if (catFilter) {
+        catFilter.addEventListener('change', () => {
+          currentVideoPage = 1;
+          renderVideoTable();
+        });
+      }
+
+      if (videoPerPageSelect) {
+        videoPerPageSelect.addEventListener('change', (e) => {
+          videosPerPage = Number((e.target as HTMLSelectElement).value) || 10;
+          currentVideoPage = 1;
+          renderVideoTable();
+        });
+      }
+
+      // Jalankan inisialisasi pagination pertama kali
+      renderVideoTable();
 
       // Color Picker & Presets
       const colorPicker = document.getElementById('setting-primaryColor') as HTMLInputElement;
