@@ -1,0 +1,79 @@
+---
+import Layout from '../layouts/Layout.astro';
+import VideoCard from '../components/VideoCard.astro';
+import SearchBar from '../components/SearchBar.astro';
+import AdBanner from '../components/AdBanner.astro';
+import { getDb } from '../lib/db';
+
+export const prerender = false;
+
+const db = getDb();
+const settings = db.settings;
+const trendingVideos = [...db.videos].sort((a, b) => (b.views || 0) - (a.views || 0));
+---
+
+<Layout title="Video Paling Populer & Trending">
+  <div class="container mx-auto px-4 py-3">
+    <!-- Search Bar (includes Tag Populer & Pencarian Terakhir) -->
+    <SearchBar placeholder="Cari di antara video trending..." />
+
+    <!-- Top Header Ad Banner -->
+    <AdBanner position="header" />
+
+    <!-- Section Header -->
+    <div class="my-6 border-b border-gray-800/80 pb-4 flex flex-col md:flex-row md:items-end justify-between gap-2">
+      <div>
+        <div class="flex items-center gap-2 mb-1">
+          <a href="/" class="text-xs text-gray-400 hover:text-white">Beranda</a>
+          <span class="text-xs text-gray-600">/</span>
+          <span class="text-xs text-primary font-semibold">Trending</span>
+        </div>
+        <h1 class="text-xl md:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+          <svg class="w-5 h-5 text-yellow-400 fill-current" viewBox="0 0 24 24">
+            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"></path>
+          </svg>
+          <span>Video Terpopuler & Paling Banyak Ditonton</span>
+        </h1>
+        <p class="text-xs text-gray-400 mt-1">
+          Peringkat konten video viral dengan lonjakan tayangan dan pemirsa terbanyak minggu ini.
+        </p>
+      </div>
+      <div class="text-xs text-slate-400 font-mono">
+        Diperbarui secara real-time
+      </div>
+    </div>
+
+    <!-- Video Grid with Rankings -->
+    <div class="mb-8">
+      <ul class="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-6 md:gap-x-4 md:gap-y-7">
+        {trendingVideos.map((video, idx) => (
+          <>
+            <div class="relative">
+              {/* Ranking Badge */}
+              <div class={`absolute -top-2 -left-2 z-10 w-6 h-6 rounded-full flex items-center justify-center font-mono font-bold text-[11px] shadow-lg border ${
+                idx === 0 
+                  ? 'bg-yellow-500 text-black border-yellow-300' 
+                  : idx === 1 
+                  ? 'bg-slate-300 text-black border-white' 
+                  : idx === 2 
+                  ? 'bg-amber-600 text-white border-amber-400' 
+                  : 'bg-slate-800 text-slate-300 border-slate-700'
+              }`}>
+                {idx + 1}
+              </div>
+              <VideoCard video={video} />
+            </div>
+            {idx === 3 && (
+              <li class="col-span-2 lg:col-span-4 my-2">
+                <AdBanner position="grid_middle" />
+              </li>
+            )}
+          </>
+        ))}
+      </ul>
+    </div>
+
+    <!-- Bottom Ad Banner -->
+    <AdBanner position="watch_bottom" />
+  </div>
+</Layout>

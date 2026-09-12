@@ -1,0 +1,61 @@
+---
+import { getDb } from '../lib/db';
+
+const db = getDb();
+const stickyAd = db.ads.find((a) => a.position === 'sticky_bottom' && a.isActive);
+---
+
+{stickyAd && (
+  <div 
+    id="sticky-bottom-banner" 
+    class="fixed bottom-0 inset-x-0 z-40 flex justify-center items-center bg-black/95 backdrop-blur-md border-t border-slate-800/90 py-2 px-4 transition-transform duration-300 shadow-2xl"
+  >
+    <div class="relative max-w-2xl w-full flex items-center justify-center">
+      <button 
+        type="button" 
+        id="close-sticky-btn" 
+        class="absolute -top-3.5 right-0 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-full p-1 shadow-lg border border-slate-700 text-xs flex items-center justify-center w-6 h-6 cursor-pointer transition-colors"
+        title="Tutup Iklan"
+      >
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+
+      {stickyAd.type === 'image' && stickyAd.imageUrl && (
+        <a 
+          href={stickyAd.targetUrl || '#'} 
+          target="_blank" 
+          rel="noopener noreferrer sponsored"
+          class="block max-h-16 md:max-h-20 overflow-hidden rounded"
+        >
+          <img 
+            src={stickyAd.imageUrl} 
+            alt={stickyAd.name} 
+            class="max-h-16 md:max-h-20 w-auto object-contain mx-auto" 
+            loading="lazy"
+          />
+        </a>
+      )}
+
+      {stickyAd.type === 'script' && stickyAd.scriptCode && (
+        <div class="w-full flex justify-center" set:html={stickyAd.scriptCode} />
+      )}
+    </div>
+  </div>
+)}
+
+<script>
+  const banner = document.getElementById('sticky-bottom-banner');
+  const closeBtn = document.getElementById('close-sticky-btn');
+  if (closeBtn && banner) {
+    if (sessionStorage.getItem('sticky_banner_closed')) {
+      banner.style.display = 'none';
+    }
+    closeBtn.addEventListener('click', () => {
+      banner.style.display = 'none';
+      sessionStorage.setItem('sticky_banner_closed', 'true');
+    });
+  }
+</script>

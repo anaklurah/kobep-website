@@ -1,0 +1,173 @@
+---
+import type { Comment } from '../lib/db';
+
+interface Props {
+  videoId: string;
+  comments: Comment[];
+}
+
+const { videoId, comments } = Astro.props;
+---
+
+<section class="mt-8 pt-6 border-t border-gray-800" id="comments-section" data-video-id={videoId}>
+  <div class="flex items-center justify-between mb-6">
+    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>Komentar Penonton (<span id="comments-count">{comments.length}</span>)</span>
+    </h3>
+  </div>
+
+  <!-- Add Comment Form -->
+  <form id="comment-form" class="bg-gray-900/60 p-4 rounded-xl border border-gray-800/80 mb-6">
+    <div class="mb-3">
+      <label for="comment-author" class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Nama / Panggilan</label>
+      <input 
+        type="text" 
+        id="comment-author" 
+        name="authorName" 
+        placeholder="Contoh: Budi Santoso atau Anonim..." 
+        class="w-full bg-black/70 border border-gray-700/80 rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-600"
+      />
+    </div>
+
+    <div class="mb-3">
+      <label for="comment-content" class="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Tulis Komentar Anda</label>
+      <textarea 
+        id="comment-content" 
+        name="content" 
+        rows="3" 
+        required 
+        placeholder="Bagikan pendapat atau request video berikutnya..." 
+        class="w-full bg-black/70 border border-gray-700/80 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-gray-600 resize-none"
+      ></textarea>
+    </div>
+
+    <div class="flex justify-end">
+      <button 
+        type="submit" 
+        id="submit-comment-btn"
+        class="inline-flex items-center gap-2 px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-sm font-semibold shadow-lg shadow-primary/25 transition-all cursor-pointer"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+        <span>Kirim Komentar</span>
+      </button>
+    </div>
+  </form>
+
+  <!-- Comments List -->
+  <div id="comments-list" class="space-y-4">
+    {comments.length === 0 ? (
+      <div id="empty-comments" class="text-center py-8 text-gray-500 text-sm">
+        Belum ada komentar untuk video ini. Jadilah yang pertama berkomentar!
+      </div>
+    ) : (
+      comments.map((comment) => (
+        <div class="comment-card flex gap-3.5 p-3.5 rounded-xl bg-gray-950/60 border border-gray-800/60 transition-all hover:border-gray-700">
+          <img 
+            src={comment.authorAvatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(comment.authorName)}`} 
+            alt={comment.authorName} 
+            class="w-9 h-9 rounded-full bg-gray-800 shrink-0 border border-gray-700/50"
+          />
+          <div class="flex-1">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-semibold text-sm text-gray-200">{comment.authorName}</span>
+              <span class="text-[11px] text-gray-500">{new Date(comment.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+            </div>
+            <p class="text-sm text-gray-300 leading-relaxed break-words">{comment.content}</p>
+          </div>
+        </div>
+      ))
+    )}
+  </div>
+</section>
+
+<script>
+  const section = document.getElementById('comments-section');
+  const videoId = section?.getAttribute('data-video-id');
+  const form = document.getElementById('comment-form') as HTMLFormElement | null;
+  const list = document.getElementById('comments-list');
+  const countEl = document.getElementById('comments-count');
+  const emptyEl = document.getElementById('empty-comments');
+  const submitBtn = document.getElementById('submit-comment-btn');
+
+  if (form && videoId && list) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const authorInput = document.getElementById('comment-author') as HTMLInputElement;
+      const contentInput = document.getElementById('comment-content') as HTMLTextAreaElement;
+
+      const authorName = authorInput.value.trim() || 'Pengunjung';
+      const content = contentInput.value.trim();
+
+      if (!content) return;
+
+      if (submitBtn) {
+        submitBtn.setAttribute('disabled', 'true');
+        submitBtn.innerHTML = 'Mengirim...';
+      }
+
+      try {
+        const res = await fetch('/api/comments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ videoId, authorName, content })
+        });
+
+        const data = await res.json();
+        if (data.success && data.comment) {
+          if (emptyEl) {
+            emptyEl.remove();
+          }
+
+          // Create comment card element
+          const c = data.comment;
+          const card = document.createElement('div');
+          card.className = 'comment-card flex gap-3.5 p-3.5 rounded-xl bg-gray-950/60 border border-gray-800/60 transition-all hover:border-gray-700 animate-fadeIn';
+          card.innerHTML = `
+            <img 
+              src="${c.authorAvatar}" 
+              alt="${c.authorName}" 
+              class="w-9 h-9 rounded-full bg-gray-800 shrink-0 border border-gray-700/50"
+            />
+            <div class="flex-1">
+              <div class="flex items-center justify-between mb-1">
+                <span class="font-semibold text-sm text-gray-200">${c.authorName}</span>
+                <span class="text-[11px] text-gray-500">Baru saja</span>
+              </div>
+              <p class="text-sm text-gray-300 leading-relaxed break-words">${c.content}</p>
+            </div>
+          `;
+
+          list.insertBefore(card, list.firstChild);
+
+          // Update count
+          if (countEl) {
+            const current = parseInt(countEl.textContent || '0', 10);
+            countEl.textContent = String(current + 1);
+          }
+
+          contentInput.value = '';
+        }
+      } catch (err) {
+        console.error('Error posting comment:', err);
+        alert('Gagal mengirim komentar. Silakan coba lagi.');
+      } finally {
+        if (submitBtn) {
+          submitBtn.removeAttribute('disabled');
+          submitBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+            <span>Kirim Komentar</span>
+          `;
+        }
+      }
+    });
+  }
+</script>

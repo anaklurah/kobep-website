@@ -1,0 +1,2158 @@
+---
+import { getDb } from '../../lib/db';
+import { hexToHsl, formatNumber } from '../../lib/color';
+import '../../styles/global.css';
+
+export const prerender = false;
+
+const db = getDb();
+const settings = db.settings;
+const categories = db.categories;
+const videos = db.videos;
+const ads = db.ads;
+const videoBranding = db.videoBranding || {
+  enabled: false,
+  introPath: '',
+  outroPath: '',
+  watermarkPath: '',
+  watermarkText: 'Nyalaporn.com',
+  watermarkPosition: 'center',
+  watermarkOpacity: 0.35
+};
+const primaryHsl = hexToHsl(settings.primaryColor || '#7c3aed');
+
+const totalViews = videos.reduce((acc, v) => acc + (v.views || 0), 0);
+const totalLikes = videos.reduce((acc, v) => acc + (v.likes || 0), 0);
+const avgViews = videos.length > 0 ? Math.round(totalViews / videos.length) : 0;
+const engagementRate = totalViews > 0 ? ((totalLikes / totalViews) * 100).toFixed(2) : '0.00';
+
+// Category distribution
+const categoryStats = categories.map((cat) => {
+  const count = videos.filter((v) => v.category.toLowerCase() === cat.name.toLowerCase()).length;
+  const percentage = videos.length > 0 ? Math.round((count / videos.length) * 100) : 0;
+  return { ...cat, count, percentage };
+});
+
+// Daily views chart data
+const dailyViewsEntries = Object.entries(db.analytics?.dailyViews || {})
+  .slice(-7)
+  .map(([date, val]) => ({ date, val }));
+const maxDailyView = Math.max(...dailyViewsEntries.map((d) => d.val), 1);
+---
+
+<!DOCTYPE html>
+<html lang="id" class="dark bg-[#07090e] text-slate-100 antialiased selection:bg-primary selection:text-white">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Panel Pengelola | {settings.siteName}</title>
+    <link rel="icon" type="image/x-icon" href={settings.faviconUrl || '/favicon.ico'} />
+    <style define:vars={{ primaryHsl }}>
+      :root {
+        --primary: var(--primaryHsl);
+        --ring: var(--primaryHsl);
+      }
+    </style>
+  </head>
+  <body class="min-h-screen flex flex-col bg-[#07090e] text-slate-200 text-sm">
+    <!-- Toast Notification Container -->
+    <div id="toast" class="fixed top-5 right-5 z-50 transform transition-all duration-300 translate-y-[-20px] opacity-0 pointer-events-none flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl text-xs font-semibold text-white">
+      <div id="toast-icon" class="w-5 h-5 rounded-full flex items-center justify-center bg-emerald-500/20 text-emerald-400">
+        <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+      </div>
+      <span id="toast-msg">Operasi berhasil</span>
+    </div>
+
+    <!-- Top Navigation Bar -->
+    <header class="bg-[#0c1017] border-b border-slate-800/80 sticky top-0 z-40">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <a href="/admin" class="flex items-center gap-2.5 group">
+            <div class="w-8 h-8 rounded-lg bg-primary/20 border border-primary/40 flex items-center justify-center text-primary font-bold shadow-inner">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="4"></rect>
+                <polygon points="10 8 16 12 10 16 10 8"></polygon>
+              </svg>
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <span class="font-extrabold text-sm tracking-tight text-white">{settings.siteName}</span>
+                <span class="text-[10px] uppercase tracking-wider font-semibold bg-slate-800 text-slate-300 px-2 py-0.5 rounded border border-slate-700/60">
+                  Panel Agen
+                </span>
+              </div>
+            </div>
+          </a>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <div class="hidden sm:flex items-center gap-2 text-xs text-slate-400 border-r border-slate-800 pr-4">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Server Aktif</span>
+          </div>
+
+          <a 
+            href="/" 
+            target="_blank"
+            class="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700/80 transition-all"
+          >
+            <span>Pratinjau Situs</span>
+            <svg class="w-3.5 h-3.5 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col lg:flex-row gap-6 w-full">
+      <!-- Sidebar Navigation -->
+      <aside class="w-full lg:w-60 shrink-0">
+        <div class="bg-[#0c1017] rounded-xl border border-slate-800/90 p-2.5 shadow-sm sticky top-20">
+          <div class="px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            Menu Utama
+          </div>
+          <nav class="space-y-1" id="panel-tabs">
+            <button 
+              type="button" 
+              data-tab="tab-analytics" 
+              class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold transition-all bg-primary text-white"
+            >
+              <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="7" height="9"></rect>
+                  <rect x="14" y="3" width="7" height="5"></rect>
+                  <rect x="14" y="12" width="7" height="9"></rect>
+                  <rect x="3" y="16" width="7" height="5"></rect>
+                </svg>
+                <span>Ringkasan & Analitik</span>
+              </div>
+            </button>
+
+            <button 
+              type="button" 
+              data-tab="tab-videos" 
+              class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all"
+            >
+              <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m22 8-6 4 6 4V8Z"></path>
+                  <rect x="2" y="6" width="14" height="12" rx="2"></rect>
+                </svg>
+                <span>Koleksi Video</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">{videos.length}</span>
+            </button>
+
+            <button 
+              type="button" 
+              data-tab="tab-categories" 
+              class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all"
+            >
+              <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path>
+                </svg>
+                <span>Kategori</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">{categories.length}</span>
+            </button>
+
+            <button 
+              type="button" 
+              data-tab="tab-ads" 
+              class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all"
+            >
+              <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m3 11 18-5v12L3 14v-3z"></path>
+                  <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"></path>
+                </svg>
+                <span>Jaringan Iklan</span>
+              </div>
+              <span class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">{ads.length}</span>
+            </button>
+
+            <div class="pt-3 border-t border-slate-800/80 px-3 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Pengaturan
+            </div>
+
+            <button 
+              type="button" 
+              data-tab="tab-branding" 
+              class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all"
+            >
+              <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
+                  <path d="M2 12h20"></path>
+                </svg>
+                <span>Branding & Visual</span>
+              </div>
+            </button>
+
+            <button 
+              type="button" 
+              data-tab="tab-seo" 
+              class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all"
+            >
+              <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                </svg>
+                <span>SEO & Integrasi</span>
+              </div>
+            </button>
+
+            <button 
+              type="button" 
+              data-tab="tab-video-branding" 
+              class="tab-btn w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-all"
+            >
+              <div class="flex items-center gap-2.5">
+                <svg class="w-4 h-4 shrink-0 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                </svg>
+                <span>Branding Video & Watermark</span>
+              </div>
+              <span class="text-[9px] px-1.5 py-0.2 rounded bg-primary/20 text-primary border border-primary/30 font-mono font-bold">FFMPEG</span>
+            </button>
+          </nav>
+        </div>
+      </aside>
+
+      <!-- Main Workspace Pane -->
+      <main class="flex-1 min-w-0">
+        <!-- ================= TAB 1: ANALYTICS & OVERVIEW ================= -->
+        <section id="tab-analytics" class="tab-pane space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+            <div>
+              <h1 class="text-lg font-bold text-white tracking-tight">Ringkasan Performa & Analitik Konten</h1>
+              <p class="text-xs text-slate-400 mt-0.5">Monitoring metrik pertumbuhan penayangan, retensi, dan performa video aktif.</p>
+            </div>
+          </div>
+
+          <!-- KPI Cards Grid -->
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
+            <div class="bg-[#0c1017] p-4 rounded-xl border border-slate-800/80 shadow-sm">
+              <div class="text-[11px] font-semibold text-slate-400 tracking-wider mb-1">Total Penayangan</div>
+              <div class="text-2xl font-extrabold text-white font-mono">{formatNumber(totalViews)}</div>
+              <div class="text-[11px] text-emerald-400 flex items-center gap-1 mt-1 font-medium">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline>
+                  <polyline points="17 6 23 6 23 12"></polyline>
+                </svg>
+                <span>Akumulasi semua video</span>
+              </div>
+            </div>
+
+            <div class="bg-[#0c1017] p-4 rounded-xl border border-slate-800/80 shadow-sm">
+              <div class="text-[11px] font-semibold text-slate-400 tracking-wider mb-1">Rata-rata Views / Konten</div>
+              <div class="text-2xl font-extrabold text-white font-mono">{formatNumber(avgViews)}</div>
+              <div class="text-[11px] text-slate-400 mt-1 font-medium">
+                <span>Dari {videos.length} video aktif</span>
+              </div>
+            </div>
+
+            <div class="bg-[#0c1017] p-4 rounded-xl border border-slate-800/80 shadow-sm">
+              <div class="text-[11px] font-semibold text-slate-400 tracking-wider mb-1">Tingkat Interaksi (Likes)</div>
+              <div class="text-2xl font-extrabold text-white font-mono">{formatNumber(totalLikes)}</div>
+              <div class="text-[11px] text-primary flex items-center gap-1 mt-1 font-medium">
+                <span>Rasio: {engagementRate}%</span>
+              </div>
+            </div>
+
+            <div class="bg-[#0c1017] p-4 rounded-xl border border-slate-800/80 shadow-sm">
+              <div class="text-[11px] font-semibold text-slate-400 tracking-wider mb-1">Slot Iklan Beroperasi</div>
+              <div class="text-2xl font-extrabold text-white font-mono">{ads.filter((a) => a.isActive).length} / {ads.length}</div>
+              <div class="text-[11px] text-emerald-400 mt-1 font-medium">Status operasional normal</div>
+            </div>
+          </div>
+
+          <!-- Charts and Category Breakdown Grid -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Daily Views Visual Chart -->
+            <div class="bg-[#0c1017] p-5 rounded-xl border border-slate-800/80 shadow-sm lg:col-span-2">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">Aktivitas Penayangan 7 Hari Terakhir</h3>
+                  <p class="text-[11px] text-slate-400 mt-0.5">Grafik volume tayangan harian pemirsa</p>
+                </div>
+                <span class="text-xs font-mono text-slate-400 bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700/60">
+                  Total: {formatNumber(dailyViewsEntries.reduce((a, b) => a + b.val, 0))} views
+                </span>
+              </div>
+
+              <!-- Bar Chart Representation -->
+              <div class="h-44 flex items-end gap-2 sm:gap-3 pt-6 pb-2 border-b border-slate-800">
+                {dailyViewsEntries.map((item) => {
+                  const heightPercent = Math.max(Math.round((item.val / maxDailyView) * 100), 12);
+                  const label = item.date.slice(5);
+                  return (
+                    <div class="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group relative">
+                      <div class="absolute -top-7 opacity-0 group-hover:opacity-100 transition-opacity bg-slate-800 text-white text-[10px] font-mono px-1.5 py-0.5 rounded pointer-events-none whitespace-nowrap border border-slate-700 z-10">
+                        {formatNumber(item.val)} views
+                      </div>
+                      <div 
+                        class="w-full bg-slate-800 group-hover:bg-primary rounded-t transition-all duration-300" 
+                        style={`height: ${heightPercent}%;`}
+                      ></div>
+                      <span class="text-[10px] font-mono text-slate-400 tracking-tighter truncate">{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <!-- Distribution by Category -->
+            <div class="bg-[#0c1017] p-5 rounded-xl border border-slate-800/80 shadow-sm lg:col-span-1">
+              <h3 class="text-xs font-bold text-white uppercase tracking-wider mb-1">Distribusi Kategori</h3>
+              <p class="text-[11px] text-slate-400 mb-4">Penyebaran konten per kategori</p>
+
+              <div class="space-y-3">
+                {categoryStats.slice(0, 5).map((c) => (
+                  <div>
+                    <div class="flex justify-between text-xs mb-1">
+                      <span class="text-slate-300 font-medium">{c.name}</span>
+                      <span class="text-slate-400 font-mono text-[11px]">{c.count} video ({c.percentage}%)</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div class="h-full bg-primary rounded-full" style={`width: ${c.percentage}%;`}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Performing Content Table -->
+          <div class="bg-[#0c1017] rounded-xl border border-slate-800/80 shadow-sm overflow-hidden">
+            <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+              <div>
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider">Top 10 Video Berperforma Tertinggi</h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Peringkat video berdasarkan total akumulasi tayangan</p>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-[#090d14] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                  <tr>
+                    <th class="py-3 px-4 font-semibold">Peringkat</th>
+                    <th class="py-3 px-4 font-semibold">Judul Video</th>
+                    <th class="py-3 px-4 font-semibold">Kategori</th>
+                    <th class="py-3 px-4 font-semibold">Durasi</th>
+                    <th class="py-3 px-4 font-semibold">Tayangan</th>
+                    <th class="py-3 px-4 font-semibold">Likes</th>
+                    <th class="py-3 px-4 text-right font-semibold">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 font-sans">
+                  {videos
+                    .slice()
+                    .sort((a, b) => b.views - a.views)
+                    .slice(0, 10)
+                    .map((v, i) => (
+                      <tr class="hover:bg-slate-900/40 transition-colors">
+                        <td class="py-3 px-4 font-mono font-bold text-slate-500">#{i + 1}</td>
+                        <td class="py-3 px-4 font-semibold text-white max-w-sm truncate">
+                          <a href={`/view/${v.slug}`} target="_blank" class="hover:text-primary transition-colors">
+                            {v.title}
+                          </a>
+                        </td>
+                        <td class="py-3 px-4">
+                          <span class="px-2 py-0.5 rounded text-[11px] bg-slate-800/80 text-slate-300 border border-slate-700/60">
+                            {v.category}
+                          </span>
+                        </td>
+                        <td class="py-3 px-4 font-mono text-slate-400 text-[11px]">{v.duration}</td>
+                        <td class="py-3 px-4 font-mono font-bold text-emerald-400">{formatNumber(v.views)}</td>
+                        <td class="py-3 px-4 font-mono text-slate-300">{formatNumber(v.likes)}</td>
+                        <td class="py-3 px-4 text-right">
+                          <a 
+                            href={`/view/${v.slug}`} 
+                            target="_blank"
+                            class="inline-flex items-center gap-1 text-primary hover:underline font-semibold text-xs"
+                          >
+                            <span>Buka</span>
+                            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                              <polyline points="15 3 21 3 21 9"></polyline>
+                              <line x1="10" y1="14" x2="21" y2="3"></line>
+                            </svg>
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TAB 2: MANAJEMEN VIDEO ================= -->
+        <section id="tab-videos" class="tab-pane hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+            <div>
+              <h1 class="text-lg font-bold text-white tracking-tight">Manajemen Konten Video</h1>
+              <p class="text-xs text-slate-400 mt-0.5">Kelola seluruh basis data video, unggah berkas baru, edit metadata, dan atur thumbnail.</p>
+            </div>
+            <button 
+              id="open-upload-modal-btn"
+              class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow transition-all cursor-pointer"
+            >
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Unggah Video Baru</span>
+            </button>
+          </div>
+
+          <!-- Controls Bar: Filter & Search -->
+          <div class="bg-[#0c1017] p-3.5 rounded-xl border border-slate-800/80 flex flex-col sm:flex-row items-center gap-3">
+            <div class="relative flex-1 w-full">
+              <svg class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input 
+                type="text" 
+                id="admin-video-search" 
+                placeholder="Cari berdasarkan judul atau tag..." 
+                class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+              <select id="admin-video-cat-filter" class="bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-primary">
+                <option value="">Semua Kategori</option>
+                {categories.map((c) => (
+                  <option value={c.name.toLowerCase()}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <!-- Video Table View -->
+          <div class="bg-[#0c1017] rounded-xl border border-slate-800/80 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-[#090d14] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                  <tr>
+                    <th class="py-3 px-4 font-semibold">Media</th>
+                    <th class="py-3 px-4 font-semibold">Judul & Kategori</th>
+                    <th class="py-3 px-4 font-semibold">Durasi</th>
+                    <th class="py-3 px-4 font-semibold">Statistik</th>
+                    <th class="py-3 px-4 font-semibold">Tanggal</th>
+                    <th class="py-3 px-4 text-right font-semibold">Tindakan</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800/60 font-sans" id="video-table-rows">
+                  {videos.map((v) => (
+                    <tr class="admin-video-row hover:bg-slate-900/40 transition-colors" data-title={v.title.toLowerCase()} data-cat={v.category.toLowerCase()}>
+                      <td class="py-3 px-4">
+                        <div class="w-20 aspect-video rounded overflow-hidden bg-black border border-slate-800 relative">
+                          <img src={v.thumbUrl} alt={v.title} class="w-full h-full object-cover" />
+                        </div>
+                      </td>
+                      <td class="py-3 px-4 max-w-xs">
+                        <div class="font-semibold text-white truncate">{v.title}</div>
+                        <div class="flex items-center gap-2 mt-1">
+                          <span class="text-[10px] font-medium text-primary uppercase">{v.category}</span>
+                          <span class="text-[10px] text-slate-500 font-mono">/view/{v.slug}</span>
+                        </div>
+                      </td>
+                      <td class="py-3 px-4 font-mono text-slate-400">{v.duration}</td>
+                      <td class="py-3 px-4 font-mono text-slate-300">
+                        <div>{formatNumber(v.views)} views</div>
+                        <div class="text-[10px] text-slate-500">{v.likes} likes</div>
+                      </td>
+                      <td class="py-3 px-4 text-slate-400 text-[11px]">
+                        {new Date(v.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td class="py-3 px-4 text-right">
+                        <div class="inline-flex items-center gap-1.5">
+                          <a 
+                            href={`/view/${v.slug}`} 
+                            target="_blank" 
+                            class="p-1.5 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                            title="Pratinjau"
+                          >
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                              <circle cx="12" cy="12" r="3"></circle>
+                            </svg>
+                          </a>
+                          <button 
+                            type="button" 
+                            class="delete-video-btn p-1.5 rounded text-red-400 hover:text-red-300 hover:bg-red-950/40 transition-colors cursor-pointer"
+                            data-id={v.id}
+                            title="Hapus Video"
+                          >
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                              <path d="M3 6h18"></path>
+                              <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                              <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TAB 3: MANAJEMEN KATEGORI ================= -->
+        <section id="tab-categories" class="tab-pane hidden space-y-6">
+          <div class="border-b border-slate-800/80 pb-4">
+            <h1 class="text-lg font-bold text-white tracking-tight">Manajemen Taksonomi Kategori</h1>
+            <p class="text-xs text-slate-400 mt-0.5">Tambah dan kelola kategori video. Setiap perubahan langsung sinkron pada navigasi situs.</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Add Category Card -->
+            <div class="bg-[#0c1017] p-5 rounded-xl border border-slate-800/80 shadow-sm lg:col-span-1">
+              <h3 class="text-xs font-bold text-white uppercase tracking-wider mb-3">Tambah Kategori</h3>
+              <form id="category-form" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Nama Kategori</label>
+                  <input 
+                    type="text" 
+                    id="cat-name-input" 
+                    required 
+                    placeholder="Nama kategori..." 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Deskripsi Ringkas</label>
+                  <textarea 
+                    id="cat-desc-input" 
+                    rows="3" 
+                    placeholder="Deskripsi kategori..." 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-primary resize-none"
+                  ></textarea>
+                </div>
+
+                <button 
+                  type="submit" 
+                  class="w-full py-2 bg-primary hover:bg-primary/90 text-white font-semibold text-xs rounded-lg shadow transition-all cursor-pointer"
+                >
+                  Simpan Kategori Baru
+                </button>
+              </form>
+            </div>
+
+            <!-- Categories Table -->
+            <div class="bg-[#0c1017] rounded-xl border border-slate-800/80 shadow-sm overflow-hidden lg:col-span-2">
+              <div class="p-4 border-b border-slate-800">
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider">Daftar Kategori Aktif ({categories.length})</h3>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-300">
+                  <thead class="bg-[#090d14] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                    <tr>
+                      <th class="py-3 px-4 font-semibold">Nama</th>
+                      <th class="py-3 px-4 font-semibold">Slug URL</th>
+                      <th class="py-3 px-4 font-semibold">Jumlah Konten</th>
+                      <th class="py-3 px-4 text-right font-semibold">Tindakan</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800/60 font-sans" id="category-table-body">
+                    {categories.map((c) => {
+                      const count = videos.filter((v) => v.category.toLowerCase() === c.name.toLowerCase()).length;
+                      return (
+                        <tr class="hover:bg-slate-900/40 transition-colors">
+                          <td class="py-3 px-4 font-semibold text-white">{c.name}</td>
+                          <td class="py-3 px-4 font-mono text-slate-400 text-[11px]">/category/{c.slug}</td>
+                          <td class="py-3 px-4">
+                            <span class="px-2 py-0.5 rounded text-[11px] bg-slate-800 text-slate-300 font-mono">
+                              {count} Konten
+                            </span>
+                          </td>
+                          <td class="py-3 px-4 text-right">
+                            <button 
+                              type="button" 
+                              class="delete-category-btn text-xs text-red-400 hover:text-red-300 font-medium px-2.5 py-1 rounded hover:bg-red-950/40 transition-colors cursor-pointer"
+                              data-id={c.id}
+                            >
+                              Hapus
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= TAB 4: BANNER IKLAN ================= -->
+        <section id="tab-ads" class="tab-pane hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+            <div>
+              <h1 class="text-lg font-bold text-white tracking-tight">Manajemen Jaringan Banner Iklan</h1>
+              <p class="text-xs text-slate-400 mt-0.5">Kelola penempatan banner sponsor atau script jaringan iklan di slot strategis.</p>
+            </div>
+            <button 
+              id="open-ad-modal-btn"
+              class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow transition-all cursor-pointer"
+            >
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              <span>Tambah Banner Baru</span>
+            </button>
+          </div>
+
+          <!-- Popunder & Direct Link Setup -->
+          <div class="bg-[#0c1017] p-5 rounded-xl border border-slate-800/80 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider">Iklan Popunder / Tautan Langsung Sponsor</h3>
+                <p class="text-[11px] text-slate-400 mt-0.5">Membuka tab baru ke tautan sponsor saat pengunjung pertama kali mengklik di situs web.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  id="setting-popunderEnabled" 
+                  checked={settings.popunderEnabled} 
+                  class="rounded bg-black border-slate-700 text-primary focus:ring-primary cursor-pointer"
+                />
+                <label for="setting-popunderEnabled" class="text-xs font-semibold text-slate-200 cursor-pointer">Aktifkan Popunder</label>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="md:col-span-2">
+                <label class="block text-xs font-medium text-slate-400 mb-1">Target URL Sponsor / Afiliasi</label>
+                <input 
+                  type="text" 
+                  id="setting-popunderUrl" 
+                  value={settings.popunderUrl || ''} 
+                  placeholder="https://sponsor.com/ref?..." 
+                  class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-slate-400 mb-1">Frekuensi Tayang per Pengunjung</label>
+                <select id="setting-popunderFrequencyHours" class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary">
+                  <option value="0" selected={settings.popunderFrequencyHours === 0}>Setiap Kali Klik</option>
+                  <option value="1" selected={settings.popunderFrequencyHours === 1}>1x Setiap 1 Jam</option>
+                  <option value="3" selected={settings.popunderFrequencyHours === 3}>1x Setiap 3 Jam</option>
+                  <option value="6" selected={settings.popunderFrequencyHours === 6 || !settings.popunderFrequencyHours}>1x Setiap 6 Jam (Rekomendasi)</option>
+                  <option value="12" selected={settings.popunderFrequencyHours === 12}>1x Setiap 12 Jam</option>
+                  <option value="24" selected={settings.popunderFrequencyHours === 24}>1x Setiap 24 Jam</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="flex justify-end pt-1">
+              <button 
+                type="button" 
+                id="save-popunder-btn" 
+                class="px-4 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow transition-all cursor-pointer"
+              >
+                Simpan Konfigurasi Popunder
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="ads-list-container">
+            {ads.map((ad) => (
+              <div class="bg-[#0c1017] p-4 rounded-xl border border-slate-800/80 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-bold text-xs text-white">{ad.name}</span>
+                    <span class={`text-[10px] font-semibold px-2 py-0.5 rounded tracking-wider ${ad.isActive ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60' : 'bg-slate-800 text-slate-400 border border-slate-700'}`}>
+                      {ad.isActive ? 'Aktif' : 'Nonaktif'}
+                    </span>
+                  </div>
+                  <div class="text-[11px] text-slate-400 mb-3 flex items-center gap-2">
+                    <span>Posisi Penempatan:</span>
+                    <span class="font-mono text-slate-200 bg-slate-800 px-1.5 py-0.2 rounded text-[10px] uppercase">{ad.position}</span>
+                  </div>
+
+                  {ad.type === 'image' && ad.imageUrl && (
+                    <div class="bg-black/50 p-2 rounded border border-slate-800 mb-3 flex items-center justify-center max-h-24 overflow-hidden">
+                      <img src={ad.imageUrl} alt={ad.name} class="max-h-20 object-contain" />
+                    </div>
+                  )}
+
+                  {ad.type === 'script' && (
+                    <pre class="bg-black p-2 rounded text-[10px] font-mono text-slate-400 overflow-x-auto mb-3">
+                      {ad.scriptCode || 'Kode Script HTML/JS'}
+                    </pre>
+                  )}
+                </div>
+
+                <div class="flex items-center justify-between pt-3 border-t border-slate-800/80">
+                  <a href={ad.targetUrl || '#'} target="_blank" class="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                    <span>Target URL</span>
+                    <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                  </a>
+                  <button 
+                    type="button" 
+                    class="delete-ad-btn text-xs text-red-400 hover:text-red-300 font-medium px-2 py-1 rounded hover:bg-red-950/40 transition-colors cursor-pointer"
+                    data-id={ad.id}
+                  >
+                    Hapus
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <!-- ================= TAB 5: BRANDING & VISUAL ================= -->
+        <section id="tab-branding" class="tab-pane hidden space-y-6">
+          <div class="border-b border-slate-800/80 pb-4">
+            <h1 class="text-lg font-bold text-white tracking-tight">Identitas Branding & Visual Situs</h1>
+            <p class="text-xs text-slate-400 mt-0.5">Atur logo, nama entitas, slogan, serta palet warna aksen primer sistem.</p>
+          </div>
+
+          <form id="branding-form" class="space-y-6">
+            <div class="bg-[#0c1017] p-5 rounded-xl border border-slate-800/80 shadow-sm space-y-4">
+              <h3 class="text-xs font-bold text-white uppercase tracking-wider">Identitas Visual</h3>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Nama Situs / Brand</label>
+                  <input 
+                    type="text" 
+                    id="setting-siteName" 
+                    value={settings.siteName} 
+                    required 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Slogan / Tagline</label>
+                  <input 
+                    type="text" 
+                    id="setting-tagline" 
+                    value={settings.tagline} 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Logo URL</label>
+                  <div class="flex gap-2">
+                    <input 
+                      type="text" 
+                      id="setting-logoUrl" 
+                      value={settings.logoUrl} 
+                      placeholder="https://... atau /uploads/logos/..." 
+                      class="flex-1 bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                    />
+                    <label class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-lg border border-slate-700 cursor-pointer flex items-center">
+                      Unggah
+                      <input type="file" id="logo-file-input" accept="image/*" class="hidden" />
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Favicon URL</label>
+                  <input 
+                    type="text" 
+                    id="setting-faviconUrl" 
+                    value={settings.faviconUrl} 
+                    placeholder="https://.../favicon.ico" 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+
+              <!-- Primary Theme Color Customizer -->
+              <div class="pt-4 border-t border-slate-800">
+                <label class="block text-xs font-medium text-slate-400 mb-2">
+                  Warna Tema Primer (Primary Brand Accent)
+                </label>
+                <div class="flex flex-wrap items-center gap-3">
+                  <div class="flex items-center gap-2 bg-[#07090e] border border-slate-700 p-1.5 rounded-lg">
+                    <input 
+                      type="color" 
+                      id="setting-primaryColor" 
+                      value={settings.primaryColor || '#7c3aed'} 
+                      class="w-7 h-7 rounded cursor-pointer bg-transparent border-0"
+                    />
+                    <span class="text-xs font-mono text-slate-300 pr-2" id="color-hex-display">{settings.primaryColor || '#7c3aed'}</span>
+                  </div>
+
+                  <div class="flex items-center gap-2">
+                    <button type="button" class="color-preset w-6 h-6 rounded-full bg-[#7c3aed] border-2 border-white/20 hover:scale-110 transition-transform" data-color="#7c3aed" title="Violet"></button>
+                    <button type="button" class="color-preset w-6 h-6 rounded-full bg-[#ec4899] border-2 border-white/20 hover:scale-110 transition-transform" data-color="#ec4899" title="Pink"></button>
+                    <button type="button" class="color-preset w-6 h-6 rounded-full bg-[#e11d48] border-2 border-white/20 hover:scale-110 transition-transform" data-color="#e11d48" title="Crimson"></button>
+                    <button type="button" class="color-preset w-6 h-6 rounded-full bg-[#3b82f6] border-2 border-white/20 hover:scale-110 transition-transform" data-color="#3b82f6" title="Blue"></button>
+                    <button type="button" class="color-preset w-6 h-6 rounded-full bg-[#10b981] border-2 border-white/20 hover:scale-110 transition-transform" data-color="#10b981" title="Emerald"></button>
+                    <button type="button" class="color-preset w-6 h-6 rounded-full bg-[#f59e0b] border-2 border-white/20 hover:scale-110 transition-transform" data-color="#f59e0b" title="Amber"></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end">
+              <button 
+                type="submit" 
+                class="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow transition-all cursor-pointer"
+              >
+                Simpan Perubahan Branding
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- ================= TAB 6: SEO & INTEGRASI ================= -->
+        <section id="tab-seo" class="tab-pane hidden space-y-6">
+          <div class="border-b border-slate-800/80 pb-4">
+            <h1 class="text-lg font-bold text-white tracking-tight">Konfigurasi SEO & Integrasi Script</h1>
+            <p class="text-xs text-slate-400 mt-0.5">Optimasi indeks mesin telusur Google, metadata OpenGraph, dan script pelacakan pihak ketiga.</p>
+          </div>
+
+          <form id="seo-form" class="space-y-6">
+            <div class="bg-[#0c1017] p-5 rounded-xl border border-slate-800/80 shadow-sm space-y-4">
+              <h3 class="text-xs font-bold text-white uppercase tracking-wider">Metadata Standar</h3>
+
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Meta Title Default</label>
+                  <input 
+                    type="text" 
+                    id="setting-metaTitle" 
+                    value={settings.metaTitle} 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Meta Description</label>
+                  <textarea 
+                    id="setting-metaDescription" 
+                    rows="2" 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-primary resize-none"
+                  >{settings.metaDescription}</textarea>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Kata Kunci (Keywords)</label>
+                  <input 
+                    type="text" 
+                    id="setting-metaKeywords" 
+                    value={settings.metaKeywords} 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Tautan Channel Telegram Resmi</label>
+                  <input 
+                    type="text" 
+                    id="setting-telegramLink" 
+                    value={settings.telegramLink} 
+                    placeholder="https://t.me/..." 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">Script Pelacakan Eksternal (Google Tag Manager / Analytics / Metrika)</label>
+                  <textarea 
+                    id="setting-headScripts" 
+                    rows="3" 
+                    placeholder="<script>...</script>" 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg p-2.5 text-xs font-mono text-slate-300 focus:outline-none focus:border-primary resize-none"
+                  >{settings.headScripts}</textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-end">
+              <button 
+                type="submit" 
+                class="px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow transition-all cursor-pointer"
+              >
+                Simpan Konfigurasi SEO
+              </button>
+            </div>
+          </form>
+        </section>
+
+        <!-- ================= TAB 6: VIDEO BRANDING & WATERMARK (FFMPEG) ================= -->
+        <section id="tab-video-branding" class="tab-pane hidden space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-4">
+            <div>
+              <div class="flex items-center gap-2">
+                <h1 class="text-lg font-bold text-white tracking-tight">Otomasi Video: Intro, Outro & Watermark</h1>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30 font-bold font-mono uppercase">FFmpeg Engine</span>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">
+                Konfigurasi penambahan opening video/gif di awal, closing di akhir, dan watermark di tengah video secara otomatis saat mengunggah.
+              </p>
+            </div>
+          </div>
+
+          <form id="video-branding-form" class="space-y-6">
+            <!-- Master Toggle Switch -->
+            <div class="bg-[#0c1017] p-4 rounded-xl border border-slate-800/80 shadow-sm flex items-center justify-between">
+              <div>
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider mb-1">Status Otomasi Video</h3>
+                <p class="text-xs text-slate-400">
+                  Saat diaktifkan, video baru yang diunggah akan otomatis diproses untuk ditempel intro, outro, dan watermark.
+                </p>
+              </div>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  id="vb-enabled" 
+                  checked={videoBranding.enabled} 
+                  class="sr-only peer"
+                />
+                <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+              </label>
+            </div>
+
+            <!-- Intro and Outro Configuration Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              <!-- 1. Opening Video / GIF (Intro) -->
+              <div class="bg-[#0c1017] p-5 rounded-xl border border-slate-800/80 shadow-sm space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 rounded bg-primary/20 text-primary flex items-center justify-center font-mono font-bold text-xs">1</span>
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider">Opening Video / GIF (Intro)</h3>
+                  </div>
+                  <span class="text-[10px] text-slate-500 font-mono">Awal Video</span>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">URL Berkas Intro (MP4 / WebM / GIF)</label>
+                  <input 
+                    type="text" 
+                    id="vb-introPath" 
+                    value={videoBranding.introPath} 
+                    placeholder="Contoh: /uploads/intros/intro.mp4 atau URL..." 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                  />
+                  <div class="flex items-center gap-2 mt-2">
+                    <span class="text-xs text-slate-500">atau unggah berkas:</span>
+                    <input 
+                      type="file" 
+                      id="vb-intro-file" 
+                      accept="video/mp4,video/webm,image/gif" 
+                      class="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 cursor-pointer" 
+                    />
+                  </div>
+                  <p class="text-[11px] text-slate-500 mt-1.5">
+                    Mendukung berkas video pendek MP4/WebM atau animasi GIF (GIF akan di-loop otomatis selama 4 detik).
+                  </p>
+                </div>
+
+                <!-- Intro Preview -->
+                <div id="vb-intro-preview" class={`p-3 rounded-lg bg-[#07090e] border border-slate-800 ${videoBranding.introPath ? '' : 'hidden'}`}>
+                  <div class="text-[10px] text-slate-400 uppercase font-semibold mb-2">Pratinjau Intro Aktif:</div>
+                  <div class="aspect-video max-h-36 bg-black rounded overflow-hidden flex items-center justify-center border border-slate-700">
+                    <video id="vb-intro-preview-video" src={videoBranding.introPath} controls class="w-full h-full object-contain"></video>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 2. Closing Video / GIF (Outro) -->
+              <div class="bg-[#0c1017] p-5 rounded-xl border border-slate-800/80 shadow-sm space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                  <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 rounded bg-primary/20 text-primary flex items-center justify-center font-mono font-bold text-xs">2</span>
+                    <h3 class="text-xs font-bold text-white uppercase tracking-wider">Closing Video / GIF (Outro)</h3>
+                  </div>
+                  <span class="text-[10px] text-slate-500 font-mono">Akhir Video</span>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-400 mb-1">URL Berkas Outro (MP4 / WebM / GIF)</label>
+                  <input 
+                    type="text" 
+                    id="vb-outroPath" 
+                    value={videoBranding.outroPath} 
+                    placeholder="Contoh: /uploads/outros/outro.mp4 atau URL..." 
+                    class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                  />
+                  <div class="flex items-center gap-2 mt-2">
+                    <span class="text-xs text-slate-500">atau unggah berkas:</span>
+                    <input 
+                      type="file" 
+                      id="vb-outro-file" 
+                      accept="video/mp4,video/webm,image/gif" 
+                      class="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 cursor-pointer" 
+                    />
+                  </div>
+                  <p class="text-[11px] text-slate-500 mt-1.5">
+                    Mendukung berkas video penutup MP4/WebM atau animasi GIF (ajakan subscribe / kunjungi web).
+                  </p>
+                </div>
+
+                <!-- Outro Preview -->
+                <div id="vb-outro-preview" class={`p-3 rounded-lg bg-[#07090e] border border-slate-800 ${videoBranding.outroPath ? '' : 'hidden'}`}>
+                  <div class="text-[10px] text-slate-400 uppercase font-semibold mb-2">Pratinjau Outro Aktif:</div>
+                  <div class="aspect-video max-h-36 bg-black rounded overflow-hidden flex items-center justify-center border border-slate-700">
+                    <video id="vb-outro-preview-video" src={videoBranding.outroPath} controls class="w-full h-full object-contain"></video>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- 3. Watermark di Tengah Video -->
+            <div class="bg-[#0c1017] p-5 rounded-xl border border-slate-800/80 shadow-sm space-y-5">
+              <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                <div class="flex items-center gap-2">
+                  <span class="w-6 h-6 rounded bg-primary/20 text-primary flex items-center justify-center font-mono font-bold text-xs">3</span>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-wider">Watermark di Tengah Video</h3>
+                </div>
+                <span class="text-[10px] text-slate-500 font-mono">Overlay Sepanjang Video</span>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div class="space-y-4">
+                  <!-- Watermark Image -->
+                  <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Logo Watermark (Gambar PNG Transparan / GIF)</label>
+                    <input 
+                      type="text" 
+                      id="vb-watermarkPath" 
+                      value={videoBranding.watermarkPath} 
+                      placeholder="Contoh: /uploads/watermarks/watermark.png atau URL..." 
+                      class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                    />
+                    <div class="flex items-center gap-2 mt-2">
+                      <span class="text-xs text-slate-500">atau unggah berkas:</span>
+                      <input 
+                        type="file" 
+                        id="vb-watermark-file" 
+                        accept="image/png,image/gif,image/jpeg,image/webp" 
+                        class="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 cursor-pointer" 
+                      />
+                    </div>
+                    <p class="text-[11px] text-slate-500 mt-1">
+                      Format PNG transparan sangat direkomendasikan agar logo menyatu rapi dengan video.
+                    </p>
+                  </div>
+
+                  <!-- Fallback Text -->
+                  <div>
+                    <label class="block text-xs font-medium text-slate-400 mb-1">Teks Watermark Cadangan</label>
+                    <input 
+                      type="text" 
+                      id="vb-watermarkText" 
+                      value={videoBranding.watermarkText} 
+                      placeholder="Nyalaporn.com" 
+                      class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                    />
+                    <p class="text-[11px] text-slate-500 mt-1">
+                      Otomatis dicetak di tengah video jika gambar logo watermark kosong.
+                    </p>
+                  </div>
+
+                  <!-- Position Selection -->
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs font-medium text-slate-400 mb-1">Posisi Watermark</label>
+                      <select 
+                        id="vb-watermarkPosition" 
+                        class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+                      >
+                        <option value="center" selected={videoBranding.watermarkPosition === 'center'}>Tengah Layar (Center)</option>
+                        <option value="top-right" selected={videoBranding.watermarkPosition === 'top-right'}>Pojok Kanan Atas</option>
+                        <option value="bottom-right" selected={videoBranding.watermarkPosition === 'bottom-right'}>Pojok Kanan Bawah</option>
+                        <option value="top-left" selected={videoBranding.watermarkPosition === 'top-left'}>Pojok Kiri Atas</option>
+                        <option value="bottom-left" selected={videoBranding.watermarkPosition === 'bottom-left'}>Pojok Kiri Bawah</option>
+                      </select>
+                    </div>
+
+                    <!-- Opacity Slider -->
+                    <div>
+                      <div class="flex items-center justify-between mb-1">
+                        <label class="text-xs font-medium text-slate-400">Tingkat Transparansi (Opasitas)</label>
+                        <span id="vb-opacity-display" class="text-xs font-mono font-bold text-primary">
+                          {Math.round((videoBranding.watermarkOpacity ?? 0.35) * 100)}%
+                        </span>
+                      </div>
+                      <input 
+                        type="range" 
+                        id="vb-watermarkOpacity" 
+                        min="0.10" 
+                        max="1.0" 
+                        step="0.05" 
+                        value={videoBranding.watermarkOpacity ?? 0.35} 
+                        class="w-full accent-primary cursor-pointer mt-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Simulator Mockup Preview -->
+                <div class="flex flex-col justify-center">
+                  <div class="text-[10px] text-slate-400 uppercase font-semibold mb-2">Simulasi Tampilan Watermark di Video:</div>
+                  <div id="vb-simulator" class="relative aspect-video rounded-xl bg-gradient-to-tr from-slate-950 via-slate-900 to-slate-950 border border-slate-700 overflow-hidden flex items-center justify-center shadow-inner">
+                    <!-- Play button graphic simulating video -->
+                    <div class="absolute opacity-20 pointer-events-none">
+                      <svg class="w-16 h-16 text-slate-500" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                      </svg>
+                    </div>
+
+                    <!-- Watermark in simulator -->
+                    <div id="sim-watermark-container" class="transition-all duration-200 select-none pointer-events-none" style={`opacity: ${videoBranding.watermarkOpacity ?? 0.35};`}>
+                      {videoBranding.watermarkPath ? (
+                        <img id="sim-watermark-img" src={videoBranding.watermarkPath} alt="Watermark" class="max-h-14 max-w-[180px] object-contain" />
+                      ) : (
+                        <span id="sim-watermark-text" class="text-lg md:text-xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] tracking-wider">
+                          {videoBranding.watermarkText || 'Nyalaporn.com'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p class="text-[10px] text-slate-500 text-center mt-2">
+                    Posisi default di tengah layar dengan transparansi lembut agar video tetap nyaman ditonton tanpa menghilangkan identitas website.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="flex justify-end pt-2">
+              <button 
+                type="submit" 
+                id="save-vb-btn" 
+                class="px-6 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-lg transition-all cursor-pointer flex items-center gap-2"
+              >
+                <span>Simpan Pengaturan Video Branding</span>
+              </button>
+            </div>
+          </form>
+        </section>
+      </main>
+    </div>
+
+    <!-- ================= MODAL: UNGGAH VIDEO ================= -->
+    <div id="upload-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+      <div class="bg-[#0c1017] border border-slate-800 rounded-xl max-w-xl w-full p-6 shadow-2xl my-8">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">Unggah / Tambah Konten Video</h3>
+          <button id="close-upload-modal" class="text-slate-400 hover:text-white text-lg">&times;</button>
+        </div>
+
+        <form id="upload-video-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Judul Video *</label>
+            <input 
+              type="text" 
+              id="new-video-title" 
+              required 
+              placeholder="Judul video..." 
+              class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+            />
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Kategori *</label>
+              <select 
+                id="new-video-category" 
+                required 
+                class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+              >
+                {categories.map((c) => (
+                  <option value={c.name}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Durasi Video *</label>
+              <input 
+                type="text" 
+                id="new-video-duration" 
+                required 
+                placeholder="Contoh: 04:30" 
+                class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Sumber Berkas Video *</label>
+            <div class="space-y-2">
+              <input 
+                type="text" 
+                id="new-video-url" 
+                placeholder="Masukkan tautan langsung URL video (MP4 / WebM / Streaming)..." 
+                class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+              />
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-500">atau pilih berkas:</span>
+                <input type="file" id="new-video-file" accept="video/mp4,video/webm,video/mkv" class="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 cursor-pointer" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Gambar Thumbnail *</label>
+            <div class="space-y-2">
+              <input 
+                type="text" 
+                id="new-video-thumb" 
+                placeholder="URL Gambar Thumbnail atau otomatis dari cuplikan video..." 
+                class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+              />
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-slate-500">atau pilih gambar manual:</span>
+                <input type="file" id="new-thumb-file" accept="image/*" class="text-xs text-slate-400 file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:bg-slate-800 file:text-slate-300 hover:file:bg-slate-700 cursor-pointer" />
+              </div>
+
+              <!-- Auto-Frame Grabber Indicator & Preview -->
+              <div id="thumb-preview-box" class="hidden p-2 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-3">
+                <img id="thumb-preview-img" src="" class="w-20 aspect-video object-cover rounded bg-black border border-slate-700" alt="Preview Thumbnail" />
+                <div>
+                  <div class="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span>Cuplikan frame otomatis berhasil diambil</span>
+                  </div>
+                  <div class="text-[10px] text-slate-500">Frame detik 03.00 otomatis disimpan sebagai thumbnail</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Deskripsi Lengkap</label>
+            <textarea 
+              id="new-video-desc" 
+              rows="3" 
+              placeholder="Tuliskan deskripsi konten video..." 
+              class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg p-2.5 text-xs text-white focus:outline-none focus:border-primary resize-none"
+            ></textarea>
+          </div>
+
+          <!-- Auto Branding & Watermark Checkbox Option -->
+          <div class="p-3.5 bg-slate-900/70 border border-slate-800 rounded-xl flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <input 
+                type="checkbox" 
+                id="new-video-apply-branding" 
+                checked={videoBranding.enabled}
+                class="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-800 border-slate-700 cursor-pointer accent-primary" 
+              />
+              <div>
+                <label for="new-video-apply-branding" class="text-xs font-bold text-white cursor-pointer flex items-center gap-1.5">
+                  <span>Terapkan Opening, Closing & Watermark</span>
+                  <span class="text-[9px] px-1.5 py-0.2 rounded bg-primary/20 text-primary border border-primary/30 font-mono font-bold">FFmpeg</span>
+                </label>
+                <p class="text-[11px] text-slate-400 mt-0.5">
+                  Otomatis menempelkan opening di awal, watermark di tengah, dan closing di akhir video.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+            <button 
+              type="button" 
+              id="cancel-upload-btn" 
+              class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+            >
+              Batal
+            </button>
+            <button 
+              type="submit" 
+              id="submit-new-video-btn" 
+              class="px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow cursor-pointer"
+            >
+              Simpan & Terbitkan
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ================= MODAL: TAMBAH BANNER ================= -->
+    <div id="ad-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4 overflow-y-auto">
+      <div class="bg-[#0c1017] border border-slate-800 rounded-xl max-w-lg w-full p-6 shadow-2xl my-8">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider">Tambah Banner Iklan</h3>
+          <button id="close-ad-modal" class="text-slate-400 hover:text-white text-lg">&times;</button>
+        </div>
+
+        <form id="ad-form" class="space-y-4">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1">Nama / Label Iklan *</label>
+            <input 
+              type="text" 
+              id="ad-name-input" 
+              required 
+              placeholder="Label iklan..." 
+              class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+            />
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Posisi Slot *</label>
+              <select id="ad-position-select" class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary">
+                <option value="header">Header (Atas)</option>
+                <option value="grid_middle">In-Grid (Tengah Video)</option>
+                <option value="watch_top">Watch Top (Atas Player)</option>
+                <option value="watch_bottom">Watch Bottom (Bawah Player)</option>
+                <option value="sticky_bottom">Sticky Melayang (Bawah Layar)</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Tipe Format *</label>
+              <select id="ad-type-select" class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary">
+                <option value="image">Gambar + Tautan URL</option>
+                <option value="script">Kode Script HTML / JS</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="ad-image-fields" class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">URL Gambar Banner</label>
+              <input 
+                type="text" 
+                id="ad-image-url" 
+                placeholder="https://..." 
+                class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-400 mb-1">Target Link URL</label>
+              <input 
+                type="text" 
+                id="ad-target-url" 
+                placeholder="https://..." 
+                class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-primary"
+              />
+            </div>
+          </div>
+
+          <div id="ad-script-fields" class="hidden">
+            <label class="block text-xs font-medium text-slate-400 mb-1">Kode Script Iklan (HTML/JS)</label>
+            <textarea 
+              id="ad-script-code" 
+              rows="3" 
+              placeholder="<script>...</script>" 
+              class="w-full bg-[#07090e] border border-slate-700/80 rounded-lg p-2.5 text-xs font-mono text-slate-300 focus:outline-none focus:border-primary resize-none"
+            ></textarea>
+          </div>
+
+          <div class="flex items-center gap-2 pt-2">
+            <input type="checkbox" id="ad-active-checkbox" checked class="rounded bg-black border-slate-700 text-primary focus:ring-primary" />
+            <label for="ad-active-checkbox" class="text-xs text-slate-300">Aktifkan banner ini di situs web</label>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-3 border-t border-slate-800">
+            <button 
+              type="button" 
+              id="cancel-ad-btn" 
+              class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer"
+            >
+              Batal
+            </button>
+            <button 
+              type="submit" 
+              class="px-5 py-2 rounded-lg bg-primary hover:bg-primary/90 text-white text-xs font-bold shadow cursor-pointer"
+            >
+              Simpan Banner
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Scripting Logic for Agent Panel -->
+    <script>
+      // Clean Toast Notification Helper
+      function showToast(message: string, isError = false) {
+        const toast = document.getElementById('toast');
+        const msg = document.getElementById('toast-msg');
+        const icon = document.getElementById('toast-icon');
+        if (!toast || !msg || !icon) return;
+
+        msg.textContent = message;
+        if (isError) {
+          icon.className = 'w-5 h-5 rounded-full flex items-center justify-center bg-rose-500/20 text-rose-400';
+          icon.innerHTML = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+        } else {
+          icon.className = 'w-5 h-5 rounded-full flex items-center justify-center bg-emerald-500/20 text-emerald-400';
+          icon.innerHTML = '<svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+        }
+
+        toast.classList.remove('translate-y-[-20px]', 'opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+          toast.classList.add('translate-y-[-20px]', 'opacity-0', 'pointer-events-none');
+        }, 3200);
+      }
+
+      // Tab Switching
+      const tabBtns = document.querySelectorAll('.tab-btn');
+      const tabPanes = document.querySelectorAll('.tab-pane');
+
+      tabBtns.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-tab');
+          tabBtns.forEach((b) => {
+            b.classList.remove('bg-primary', 'text-white');
+            b.classList.add('text-slate-400');
+          });
+          btn.classList.add('bg-primary', 'text-white');
+          btn.classList.remove('text-slate-400');
+
+          tabPanes.forEach((pane) => {
+            if (pane.id === target) {
+              pane.classList.remove('hidden');
+            } else {
+              pane.classList.add('hidden');
+            }
+          });
+        });
+      });
+
+      // Video Search & Category Filter
+      const videoSearch = document.getElementById('admin-video-search') as HTMLInputElement;
+      const catFilter = document.getElementById('admin-video-cat-filter') as HTMLSelectElement;
+      const videoRows = document.querySelectorAll('.admin-video-row');
+
+      function filterVideoTable() {
+        const query = videoSearch ? videoSearch.value.toLowerCase().trim() : '';
+        const selectedCat = catFilter ? catFilter.value.toLowerCase().trim() : '';
+
+        videoRows.forEach((row) => {
+          const title = row.getAttribute('data-title') || '';
+          const cat = row.getAttribute('data-cat') || '';
+
+          const matchesQuery = !query || title.includes(query);
+          const matchesCat = !selectedCat || cat === selectedCat;
+
+          if (matchesQuery && matchesCat) {
+            (row as HTMLElement).style.display = '';
+          } else {
+            (row as HTMLElement).style.display = 'none';
+          }
+        });
+      }
+
+      if (videoSearch) videoSearch.addEventListener('input', filterVideoTable);
+      if (catFilter) catFilter.addEventListener('change', filterVideoTable);
+
+      // Color Picker & Presets
+      const colorPicker = document.getElementById('setting-primaryColor') as HTMLInputElement;
+      const hexDisplay = document.getElementById('color-hex-display');
+      const presets = document.querySelectorAll('.color-preset');
+
+      presets.forEach((p) => {
+        p.addEventListener('click', () => {
+          const color = p.getAttribute('data-color');
+          if (color && colorPicker && hexDisplay) {
+            colorPicker.value = color;
+            hexDisplay.textContent = color;
+          }
+        });
+      });
+
+      if (colorPicker && hexDisplay) {
+        colorPicker.addEventListener('input', (e) => {
+          hexDisplay.textContent = (e.target as HTMLInputElement).value;
+        });
+      }
+
+      // Logo File Upload handler
+      const logoInput = document.getElementById('logo-file-input') as HTMLInputElement;
+      const logoUrlInput = document.getElementById('setting-logoUrl') as HTMLInputElement;
+      if (logoInput && logoUrlInput) {
+        logoInput.addEventListener('change', async () => {
+          if (logoInput.files && logoInput.files[0]) {
+            const fd = new FormData();
+            fd.append('file', logoInput.files[0]);
+            fd.append('type', 'logos');
+            try {
+              const res = await fetch('/api/upload', { method: 'POST', body: fd });
+              const d = await res.json();
+              if (d.success) {
+                logoUrlInput.value = d.url;
+                showToast('Logo berhasil diunggah');
+              }
+            } catch (err) {
+              console.error(err);
+              showToast('Gagal mengunggah logo', true);
+            }
+          }
+        });
+      }
+
+      // Branding Form Submit
+      const brandingForm = document.getElementById('branding-form');
+      if (brandingForm) {
+        brandingForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const siteName = (document.getElementById('setting-siteName') as HTMLInputElement).value;
+          const tagline = (document.getElementById('setting-tagline') as HTMLInputElement).value;
+          const logoUrl = (document.getElementById('setting-logoUrl') as HTMLInputElement).value;
+          const faviconUrl = (document.getElementById('setting-faviconUrl') as HTMLInputElement).value;
+          const primaryColor = (document.getElementById('setting-primaryColor') as HTMLInputElement).value;
+
+          try {
+            const res = await fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ siteName, tagline, logoUrl, faviconUrl, primaryColor })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast('Pengaturan branding visual berhasil disimpan');
+              setTimeout(() => window.location.reload(), 800);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal menyimpan branding', true);
+          }
+        });
+      }
+
+      // SEO Form Submit
+      const seoForm = document.getElementById('seo-form');
+      if (seoForm) {
+        seoForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const metaTitle = (document.getElementById('setting-metaTitle') as HTMLInputElement).value;
+          const metaDescription = (document.getElementById('setting-metaDescription') as HTMLTextAreaElement).value;
+          const metaKeywords = (document.getElementById('setting-metaKeywords') as HTMLInputElement).value;
+          const telegramLink = (document.getElementById('setting-telegramLink') as HTMLInputElement).value;
+          const headScripts = (document.getElementById('setting-headScripts') as HTMLTextAreaElement).value;
+
+          try {
+            const res = await fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ metaTitle, metaDescription, metaKeywords, telegramLink, headScripts })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast('Konfigurasi SEO berhasil disimpan');
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal menyimpan SEO', true);
+          }
+        });
+      }
+
+      // Category Form
+      const catForm = document.getElementById('category-form');
+      if (catForm) {
+        catForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const nameInput = document.getElementById('cat-name-input') as HTMLInputElement;
+          const descInput = document.getElementById('cat-desc-input') as HTMLTextAreaElement;
+          const name = nameInput.value.trim();
+          const description = descInput.value.trim();
+
+          if (!name) return;
+
+          try {
+            const res = await fetch('/api/categories', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, description })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast(`Kategori "${name}" berhasil ditambahkan`);
+              setTimeout(() => window.location.reload(), 700);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal menambahkan kategori', true);
+          }
+        });
+      }
+
+      // Delete Category
+      document.querySelectorAll('.delete-category-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Hapus kategori ini dari sistem?')) return;
+          const id = btn.getAttribute('data-id');
+          try {
+            const res = await fetch('/api/categories', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            });
+            const d = await res.json();
+            if (d.success) {
+              showToast('Kategori berhasil dihapus');
+              setTimeout(() => window.location.reload(), 600);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal menghapus kategori', true);
+          }
+        });
+      });
+
+      // Delete Video
+      document.querySelectorAll('.delete-video-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Hapus konten video ini dari basis data?')) return;
+          const id = btn.getAttribute('data-id');
+          try {
+            const res = await fetch('/api/videos', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            });
+            const d = await res.json();
+            if (d.success) {
+              showToast('Video berhasil dihapus');
+              setTimeout(() => window.location.reload(), 600);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal menghapus video', true);
+          }
+        });
+      });
+
+      // Save Popunder Configuration
+      const savePopunderBtn = document.getElementById('save-popunder-btn');
+      if (savePopunderBtn) {
+        savePopunderBtn.addEventListener('click', async () => {
+          const popunderUrl = (document.getElementById('setting-popunderUrl') as HTMLInputElement).value.trim();
+          const popunderEnabled = (document.getElementById('setting-popunderEnabled') as HTMLInputElement).checked;
+          const popunderFrequencyHours = Number((document.getElementById('setting-popunderFrequencyHours') as HTMLSelectElement).value);
+
+          savePopunderBtn.textContent = 'Menyimpan...';
+          try {
+            const res = await fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ popunderUrl, popunderEnabled, popunderFrequencyHours })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast('Konfigurasi Popunder berhasil disimpan');
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal menyimpan Popunder', true);
+          } finally {
+            savePopunderBtn.textContent = 'Simpan Konfigurasi Popunder';
+          }
+        });
+      }
+
+      // Modal Upload Video & Auto-Frame Grabber
+      const uploadModal = document.getElementById('upload-modal');
+      const openUploadBtn = document.getElementById('open-upload-modal-btn');
+      const closeUploadBtn = document.getElementById('close-upload-modal');
+      const cancelUploadBtn = document.getElementById('cancel-upload-btn');
+      const uploadVideoForm = document.getElementById('upload-video-form');
+      const videoFileInput = document.getElementById('new-video-file') as HTMLInputElement | null;
+      const thumbFileInput = document.getElementById('new-thumb-file') as HTMLInputElement | null;
+      const thumbInput = document.getElementById('new-video-thumb') as HTMLInputElement | null;
+      const thumbPreviewBox = document.getElementById('thumb-preview-box');
+      const thumbPreviewImg = document.getElementById('thumb-preview-img') as HTMLImageElement | null;
+
+      // Auto-Frame Grabber from Video File
+      if (videoFileInput) {
+        videoFileInput.addEventListener('change', () => {
+          const file = videoFileInput.files?.[0];
+          if (!file) return;
+
+          // Auto-fill title if empty
+          const titleInput = document.getElementById('new-video-title') as HTMLInputElement;
+          if (titleInput && !titleInput.value) {
+            const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]+/g, ' ');
+            titleInput.value = baseName.charAt(0).toUpperCase() + baseName.slice(1);
+          }
+
+          showToast('Mengambil cuplikan frame otomatis...');
+          const blobUrl = URL.createObjectURL(file);
+          const tempVideo = document.createElement('video');
+          tempVideo.src = blobUrl;
+          tempVideo.muted = true;
+          tempVideo.playsInline = true;
+
+          tempVideo.onloadedmetadata = () => {
+            // Estimate duration
+            const durationInput = document.getElementById('new-video-duration') as HTMLInputElement;
+            if (durationInput && tempVideo.duration && !durationInput.value) {
+              const totalSec = Math.floor(tempVideo.duration);
+              const m = Math.floor(totalSec / 60).toString().padStart(2, '0');
+              const s = (totalSec % 60).toString().padStart(2, '0');
+              durationInput.value = `${m}:${s}`;
+            }
+            tempVideo.currentTime = Math.min(3, tempVideo.duration / 2 || 1);
+          };
+
+          tempVideo.onseeked = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = tempVideo.videoWidth || 640;
+            canvas.height = tempVideo.videoHeight || 360;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+              canvas.toBlob(async (blob) => {
+                if (blob) {
+                  const fd = new FormData();
+                  fd.append('file', blob, 'frame-thumb.jpg');
+                  fd.append('type', 'thumbs');
+                  try {
+                    const res = await fetch('/api/upload', { method: 'POST', body: fd });
+                    const d = await res.json();
+                    if (d.success) {
+                      if (thumbInput) thumbInput.value = d.url;
+                      if (thumbPreviewBox && thumbPreviewImg) {
+                        thumbPreviewImg.src = d.url;
+                        thumbPreviewBox.classList.remove('hidden');
+                      }
+                      showToast('Cuplikan frame otomatis berhasil diambil');
+                    }
+                  } catch (err) {
+                    console.error('Frame upload failed:', err);
+                  }
+                }
+                URL.revokeObjectURL(blobUrl);
+              }, 'image/jpeg', 0.85);
+            }
+          };
+        });
+      }
+
+      // Manual Thumb File selection preview
+      if (thumbFileInput) {
+        thumbFileInput.addEventListener('change', async () => {
+          const file = thumbFileInput.files?.[0];
+          if (file) {
+            const fd = new FormData();
+            fd.append('file', file);
+            fd.append('type', 'thumbs');
+            try {
+              const res = await fetch('/api/upload', { method: 'POST', body: fd });
+              const d = await res.json();
+              if (d.success) {
+                if (thumbInput) thumbInput.value = d.url;
+                if (thumbPreviewBox && thumbPreviewImg) {
+                  thumbPreviewImg.src = d.url;
+                  thumbPreviewBox.classList.remove('hidden');
+                }
+                showToast('Gambar thumbnail manual berhasil dimuat');
+              }
+            } catch (err) {
+              console.error(err);
+            }
+          }
+        });
+      }
+
+      if (openUploadBtn && uploadModal) {
+        openUploadBtn.addEventListener('click', () => {
+          uploadModal.classList.remove('hidden');
+          uploadModal.classList.add('flex');
+        });
+      }
+
+      const closeUpload = () => {
+        if (uploadModal) {
+          uploadModal.classList.add('hidden');
+          uploadModal.classList.remove('flex');
+        }
+      };
+
+      if (closeUploadBtn) closeUploadBtn.addEventListener('click', closeUpload);
+      if (cancelUploadBtn) cancelUploadBtn.addEventListener('click', closeUpload);
+
+      if (uploadVideoForm) {
+        uploadVideoForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const submitBtn = document.getElementById('submit-new-video-btn');
+          if (submitBtn) submitBtn.textContent = 'Memproses Berkas...';
+
+          try {
+            let videoUrl = (document.getElementById('new-video-url') as HTMLInputElement).value.trim();
+            let thumbUrl = (document.getElementById('new-video-thumb') as HTMLInputElement).value.trim();
+            const videoFile = (document.getElementById('new-video-file') as HTMLInputElement).files?.[0];
+            const thumbFile = (document.getElementById('new-thumb-file') as HTMLInputElement).files?.[0];
+
+            if (videoFile) {
+              const fd = new FormData();
+              fd.append('file', videoFile);
+              fd.append('type', 'videos');
+
+              const applyBranding = (document.getElementById('new-video-apply-branding') as HTMLInputElement)?.checked;
+              if (applyBranding) {
+                fd.append('applyBranding', 'true');
+                if (submitBtn) submitBtn.textContent = 'Memproses Intro, Outro & Watermark (FFmpeg)...';
+              } else {
+                if (submitBtn) submitBtn.textContent = 'Mengunggah Berkas Video...';
+              }
+
+              const res = await fetch('/api/upload', { method: 'POST', body: fd });
+              const d = await res.json();
+              if (d.success) {
+                videoUrl = d.url;
+              } else {
+                showToast(d.error || 'Gagal memproses berkas video', true);
+                if (submitBtn) submitBtn.textContent = 'Simpan & Terbitkan';
+                return;
+              }
+            }
+
+            if (thumbFile && !thumbUrl) {
+              const fd = new FormData();
+              fd.append('file', thumbFile);
+              fd.append('type', 'thumbs');
+              const res = await fetch('/api/upload', { method: 'POST', body: fd });
+              const d = await res.json();
+              if (d.success) thumbUrl = d.url;
+            }
+
+            if (!videoUrl) {
+              showToast('Harap masukkan URL Video atau pilih berkas video', true);
+              if (submitBtn) submitBtn.textContent = 'Simpan & Terbitkan';
+              return;
+            }
+
+            const title = (document.getElementById('new-video-title') as HTMLInputElement).value;
+            const category = (document.getElementById('new-video-category') as HTMLSelectElement).value;
+            const duration = (document.getElementById('new-video-duration') as HTMLInputElement).value || '03:00';
+            const description = (document.getElementById('new-video-desc') as HTMLTextAreaElement).value;
+
+            const res = await fetch('/api/videos', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title,
+                category,
+                duration,
+                description,
+                videoUrl,
+                thumbUrl: thumbUrl || 'https://cdn.kingbokep.video/thumbs/kolpri-kak-anjani-pemain-basket.webp'
+              })
+            });
+
+            const data = await res.json();
+            if (data.success) {
+              showToast('Video baru berhasil diterbitkan');
+              setTimeout(() => window.location.reload(), 700);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal menerbitkan video', true);
+          } finally {
+            if (submitBtn) submitBtn.textContent = 'Simpan & Terbitkan';
+          }
+        });
+      }
+
+      // Ad Modal
+      const adModal = document.getElementById('ad-modal');
+      const openAdBtn = document.getElementById('open-ad-modal-btn');
+      const closeAdBtn = document.getElementById('close-ad-modal');
+      const cancelAdBtn = document.getElementById('cancel-ad-btn');
+      const adTypeSelect = document.getElementById('ad-type-select') as HTMLSelectElement;
+      const adImgFields = document.getElementById('ad-image-fields');
+      const adScriptFields = document.getElementById('ad-script-fields');
+      const adForm = document.getElementById('ad-form');
+
+      if (openAdBtn && adModal) {
+        openAdBtn.addEventListener('click', () => {
+          adModal.classList.remove('hidden');
+          adModal.classList.add('flex');
+        });
+      }
+
+      const closeAd = () => {
+        if (adModal) {
+          adModal.classList.add('hidden');
+          adModal.classList.remove('flex');
+        }
+      };
+
+      if (closeAdBtn) closeAdBtn.addEventListener('click', closeAd);
+      if (cancelAdBtn) cancelAdBtn.addEventListener('click', closeAd);
+
+      if (adTypeSelect && adImgFields && adScriptFields) {
+        adTypeSelect.addEventListener('change', () => {
+          if (adTypeSelect.value === 'script') {
+            adImgFields.classList.add('hidden');
+            adScriptFields.classList.remove('hidden');
+          } else {
+            adImgFields.classList.remove('hidden');
+            adScriptFields.classList.add('hidden');
+          }
+        });
+      }
+
+      if (adForm) {
+        adForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const name = (document.getElementById('ad-name-input') as HTMLInputElement).value;
+          const position = (document.getElementById('ad-position-select') as HTMLSelectElement).value;
+          const type = (document.getElementById('ad-type-select') as HTMLSelectElement).value;
+          const imageUrl = (document.getElementById('ad-image-url') as HTMLInputElement).value;
+          const targetUrl = (document.getElementById('ad-target-url') as HTMLInputElement).value;
+          const scriptCode = (document.getElementById('ad-script-code') as HTMLTextAreaElement).value;
+          const isActive = (document.getElementById('ad-active-checkbox') as HTMLInputElement).checked;
+
+          try {
+            const res = await fetch('/api/ads', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, position, type, imageUrl, targetUrl, scriptCode, isActive })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast('Banner iklan berhasil ditambahkan');
+              setTimeout(() => window.location.reload(), 700);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal menambahkan banner', true);
+          }
+        });
+      }
+
+      // Delete Ad
+      document.querySelectorAll('.delete-ad-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('Hapus banner iklan ini?')) return;
+          const id = btn.getAttribute('data-id');
+          try {
+            const res = await fetch('/api/ads', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id })
+            });
+            const d = await res.json();
+            if (d.success) {
+              showToast('Banner berhasil dihapus');
+              setTimeout(() => window.location.reload(), 600);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal menghapus banner', true);
+          }
+        });
+      });
+
+      // ================= Video Branding & Watermark Handlers =================
+      const vbForm = document.getElementById('video-branding-form');
+      const vbIntroFile = document.getElementById('vb-intro-file') as HTMLInputElement | null;
+      const vbOutroFile = document.getElementById('vb-outro-file') as HTMLInputElement | null;
+      const vbWatermarkFile = document.getElementById('vb-watermark-file') as HTMLInputElement | null;
+
+      const vbIntroPath = document.getElementById('vb-introPath') as HTMLInputElement | null;
+      const vbOutroPath = document.getElementById('vb-outroPath') as HTMLInputElement | null;
+      const vbWatermarkPath = document.getElementById('vb-watermarkPath') as HTMLInputElement | null;
+      const vbWatermarkText = document.getElementById('vb-watermarkText') as HTMLInputElement | null;
+      const vbWatermarkPos = document.getElementById('vb-watermarkPosition') as HTMLSelectElement | null;
+      const vbWatermarkOpacity = document.getElementById('vb-watermarkOpacity') as HTMLInputElement | null;
+      const vbOpacityDisplay = document.getElementById('vb-opacity-display');
+
+      const simContainer = document.getElementById('sim-watermark-container');
+      const simSimulator = document.getElementById('vb-simulator');
+
+      function updateWatermarkSimulator() {
+        if (!simContainer) return;
+        const opacity = vbWatermarkOpacity ? parseFloat(vbWatermarkOpacity.value) : 0.35;
+        simContainer.style.opacity = opacity.toString();
+        if (vbOpacityDisplay) {
+          vbOpacityDisplay.textContent = Math.round(opacity * 100) + '%';
+        }
+
+        const wmPath = vbWatermarkPath ? vbWatermarkPath.value.trim() : '';
+        const wmText = vbWatermarkText ? vbWatermarkText.value.trim() : 'Nyalaporn.com';
+
+        if (wmPath) {
+          simContainer.innerHTML = `<img src="${wmPath}" alt="Watermark" class="max-h-14 max-w-[180px] object-contain" />`;
+        } else {
+          simContainer.innerHTML = `<span class="text-lg md:text-xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] tracking-wider">${wmText || 'Nyalaporn.com'}</span>`;
+        }
+
+        if (simSimulator) {
+          simSimulator.className = 'relative aspect-video rounded-xl bg-gradient-to-tr from-slate-950 via-slate-900 to-slate-950 border border-slate-700 overflow-hidden shadow-inner p-4 flex';
+          const pos = vbWatermarkPos ? vbWatermarkPos.value : 'center';
+          if (pos === 'center') {
+            simSimulator.classList.add('items-center', 'justify-center');
+          } else if (pos === 'top-right') {
+            simSimulator.classList.add('items-start', 'justify-end');
+          } else if (pos === 'bottom-right') {
+            simSimulator.classList.add('items-end', 'justify-end');
+          } else if (pos === 'top-left') {
+            simSimulator.classList.add('items-start', 'justify-start');
+          } else if (pos === 'bottom-left') {
+            simSimulator.classList.add('items-end', 'justify-start');
+          }
+        }
+      }
+
+      if (vbWatermarkOpacity) vbWatermarkOpacity.addEventListener('input', updateWatermarkSimulator);
+      if (vbWatermarkText) vbWatermarkText.addEventListener('input', updateWatermarkSimulator);
+      if (vbWatermarkPos) vbWatermarkPos.addEventListener('change', updateWatermarkSimulator);
+      if (vbWatermarkPath) vbWatermarkPath.addEventListener('input', updateWatermarkSimulator);
+
+      // Intro File Upload
+      if (vbIntroFile) {
+        vbIntroFile.addEventListener('change', async () => {
+          const file = vbIntroFile.files?.[0];
+          if (!file) return;
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('type', 'intros');
+          showToast('Mengunggah berkas Opening (Intro)...');
+          try {
+            const res = await fetch('/api/upload', { method: 'POST', body: fd });
+            const d = await res.json();
+            if (d.success) {
+              if (vbIntroPath) vbIntroPath.value = d.url;
+              const previewBox = document.getElementById('vb-intro-preview');
+              const previewVid = document.getElementById('vb-intro-preview-video') as HTMLVideoElement | null;
+              if (previewBox) previewBox.classList.remove('hidden');
+              if (previewVid) previewVid.src = d.url;
+              showToast('Opening Video/GIF berhasil diunggah');
+            } else {
+              showToast(d.error || 'Gagal mengunggah intro', true);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal mengunggah berkas intro', true);
+          }
+        });
+      }
+
+      // Outro File Upload
+      if (vbOutroFile) {
+        vbOutroFile.addEventListener('change', async () => {
+          const file = vbOutroFile.files?.[0];
+          if (!file) return;
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('type', 'outros');
+          showToast('Mengunggah berkas Closing (Outro)...');
+          try {
+            const res = await fetch('/api/upload', { method: 'POST', body: fd });
+            const d = await res.json();
+            if (d.success) {
+              if (vbOutroPath) vbOutroPath.value = d.url;
+              const previewBox = document.getElementById('vb-outro-preview');
+              const previewVid = document.getElementById('vb-outro-preview-video') as HTMLVideoElement | null;
+              if (previewBox) previewBox.classList.remove('hidden');
+              if (previewVid) previewVid.src = d.url;
+              showToast('Closing Video/GIF berhasil diunggah');
+            } else {
+              showToast(d.error || 'Gagal mengunggah outro', true);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal mengunggah berkas outro', true);
+          }
+        });
+      }
+
+      // Watermark File Upload
+      if (vbWatermarkFile) {
+        vbWatermarkFile.addEventListener('change', async () => {
+          const file = vbWatermarkFile.files?.[0];
+          if (!file) return;
+          const fd = new FormData();
+          fd.append('file', file);
+          fd.append('type', 'watermarks');
+          showToast('Mengunggah Logo Watermark...');
+          try {
+            const res = await fetch('/api/upload', { method: 'POST', body: fd });
+            const d = await res.json();
+            if (d.success) {
+              if (vbWatermarkPath) vbWatermarkPath.value = d.url;
+              updateWatermarkSimulator();
+              showToast('Logo Watermark berhasil diunggah');
+            } else {
+              showToast(d.error || 'Gagal mengunggah watermark', true);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal mengunggah watermark', true);
+          }
+        });
+      }
+
+      // Submit Video Branding Settings
+      if (vbForm) {
+        vbForm.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const saveBtn = document.getElementById('save-vb-btn');
+          if (saveBtn) saveBtn.textContent = 'Menyimpan...';
+
+          const enabled = (document.getElementById('vb-enabled') as HTMLInputElement)?.checked ?? false;
+          const introPath = vbIntroPath ? vbIntroPath.value.trim() : '';
+          const outroPath = vbOutroPath ? vbOutroPath.value.trim() : '';
+          const watermarkPath = vbWatermarkPath ? vbWatermarkPath.value.trim() : '';
+          const watermarkText = vbWatermarkText ? vbWatermarkText.value.trim() : 'Nyalaporn.com';
+          const watermarkPosition = vbWatermarkPos ? vbWatermarkPos.value : 'center';
+          const watermarkOpacity = vbWatermarkOpacity ? parseFloat(vbWatermarkOpacity.value) : 0.35;
+
+          try {
+            const res = await fetch('/api/settings/video-branding', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                enabled,
+                introPath,
+                outroPath,
+                watermarkPath,
+                watermarkText,
+                watermarkPosition,
+                watermarkOpacity
+              })
+            });
+            const data = await res.json();
+            if (data.success) {
+              showToast('Pengaturan Video Branding & Watermark berhasil disimpan');
+            } else {
+              showToast(data.error || 'Gagal menyimpan pengaturan', true);
+            }
+          } catch (err) {
+            console.error(err);
+            showToast('Gagal menyimpan pengaturan video branding', true);
+          } finally {
+            if (saveBtn) saveBtn.textContent = 'Simpan Pengaturan Video Branding';
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

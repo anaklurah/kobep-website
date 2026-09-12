@@ -1,0 +1,39 @@
+---
+import { getDb } from '../lib/db';
+
+const db = getDb();
+const defaultTags = ['viral', 'indo', 'skandal', 'terbaru', 'cindo', 'jilbab', 'montok', 'selebgram', 'hotel'];
+
+// Collect tags from db videos
+const tagsSet = new Set<string>(defaultTags);
+db.videos.forEach((v) => {
+  if (Array.isArray(v.tags)) {
+    v.tags.forEach((t) => {
+      if (t && t.trim()) tagsSet.add(t.trim().toLowerCase());
+    });
+  }
+});
+
+const popularTags = Array.from(tagsSet).slice(0, 12);
+---
+
+<div class="w-full max-w-3xl mx-auto px-4 -mt-2 mb-4">
+  <div class="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none text-xs">
+    <span class="text-slate-400 text-[11px] font-medium shrink-0 flex items-center gap-1 mr-1">
+      <svg class="w-3 h-3 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+        <line x1="7" y1="7" x2="7.01" y2="7"></line>
+      </svg>
+      <span>Populer:</span>
+    </span>
+
+    {popularTags.map((tag) => (
+      <a 
+        href={`/search?q=${encodeURIComponent(tag)}`}
+        class="shrink-0 px-2.5 py-1 rounded-full bg-slate-900/80 hover:bg-primary/20 text-slate-400 hover:text-primary border border-slate-800 hover:border-primary/40 text-[11px] font-medium transition-colors"
+      >
+        #{tag}
+      </a>
+    ))}
+  </div>
+</div>

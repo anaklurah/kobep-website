@@ -1,0 +1,47 @@
+---
+import type { Video } from '../lib/db';
+import { formatNumber } from '../lib/color';
+
+interface Props {
+  video: Video;
+}
+
+const { video } = Astro.props;
+---
+
+<li class="video-card group">
+  <a href={`/view/${video.slug}`} title={video.title} class="block">
+    <div class="videos-card-wrapper relative mb-2">
+      <!-- Thumbnail Image -->
+      <img 
+        src={video.thumbUrl} 
+        alt={video.title}
+        loading="lazy"
+        onerror="this.src='https://images.unsplash.com/photo-1574375927938-d5a98e8ffe85?w=600&auto=format&fit=crop&q=80'"
+      />
+      
+      <!-- Category Badge Top Left -->
+      <div class="video-card-badge top-2 left-2 !bg-black/60 border border-white/10">
+        <span class="text-[10px] font-bold text-gray-200 uppercase tracking-wider">{video.category}</span>
+      </div>
+
+      <!-- Duration Badge Bottom Right -->
+      <div class="video-card-badge bottom-2 right-2 font-mono">
+        <span class="text-xs font-semibold text-white tracking-wide">{video.duration || '03:00'}</span>
+      </div>
+
+      <!-- Views / Trending Icon Bottom Left -->
+      <div class="video-card-badge bottom-2 left-2 flex items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-3 h-3 text-yellow-400 fill-yellow-400" viewBox="0 0 24 24">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+        </svg>
+        <span class="text-[11px] font-medium text-gray-200">{formatNumber(video.views || 0)}</span>
+      </div>
+    </div>
+
+    <!-- Title -->
+    <h3 class="video-card-title text-sm font-medium text-gray-200 group-hover:text-primary transition-colors">
+      {video.title}
+    </h3>
+  </a>
+</li>

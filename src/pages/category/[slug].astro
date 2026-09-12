@@ -1,0 +1,77 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import VideoCard from '../../components/VideoCard.astro';
+import SearchBar from '../../components/SearchBar.astro';
+import AdBanner from '../../components/AdBanner.astro';
+import { getDb } from '../../lib/db';
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+const db = getDb();
+
+// Find category by slug
+const category = db.categories.find(
+  (c) => c.slug.toLowerCase() === slug?.toLowerCase() || c.name.toLowerCase().replace(/\s+/g, '-') === slug?.toLowerCase()
+);
+
+const catName = category ? category.name : slug;
+const filteredVideos = db.videos.filter(
+  (v) => v.category.toLowerCase() === (category ? category.name.toLowerCase() : slug?.toLowerCase())
+);
+---
+
+<Layout title={`Kategori: ${catName}`}>
+  <div class="container mx-auto px-4 py-3">
+    <!-- Search Bar -->
+    <SearchBar />
+
+    <!-- Header Ad Banner -->
+    <AdBanner position="header" />
+
+    <!-- Category Header -->
+    <div class="my-6 border-b border-gray-800/80 pb-4">
+      <div class="flex items-center gap-2 mb-1">
+        <a href="/" class="text-xs text-gray-400 hover:text-white">Beranda</a>
+        <span class="text-xs text-gray-600">/</span>
+        <span class="text-xs text-primary font-semibold">Kategori</span>
+      </div>
+      <h1 class="text-xl md:text-2xl font-black text-white tracking-tight flex items-center gap-2">
+        <span>Koleksi {catName}</span>
+      </h1>
+      <p class="text-xs text-gray-400 mt-1">
+        {category?.description || `Kumpulan video streaming kategori ${catName} kualitas HD terlengkap.`}
+      </p>
+    </div>
+
+    <!-- Video Grid -->
+    {filteredVideos.length === 0 ? (
+      <div class="text-center py-16 bg-gray-950/40 rounded-2xl border border-gray-800/80 my-8">
+        <div class="text-4xl mb-2">🎬</div>
+        <h3 class="text-base font-bold text-white mb-1">Belum Ada Video di Kategori Ini</h3>
+        <p class="text-xs text-gray-400 mb-4">Video untuk kategori {catName} akan segera diunggah oleh agen admin.</p>
+        <a href="/" class="inline-flex items-center px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold">
+          Kembali ke Beranda
+        </a>
+      </div>
+    ) : (
+      <div class="mb-8">
+        <ul class="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-6 md:gap-x-4 md:gap-y-7">
+          {filteredVideos.map((video, idx) => (
+            <>
+              <VideoCard video={video} />
+              {idx === 3 && (
+                <li class="col-span-2 lg:col-span-4 my-2">
+                  <AdBanner position="grid_middle" />
+                </li>
+              )}
+            </>
+          ))}
+        </ul>
+      </div>
+    )}
+
+    <!-- Bottom Ad Banner -->
+    <AdBanner position="watch_bottom" />
+  </div>
+</Layout>

@@ -1,0 +1,19 @@
+services:
+  video-platform:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: video_streaming_app
+    restart: unless-stopped
+    ports:
+      - "4321:4321"
+    environment:
+      - NODE_ENV=production
+      - HOST=0.0.0.0
+      - PORT=4321
+    volumes:
+      # Data Persistence for JSON Database (Categories, Videos, Settings, Ads, Analytics)
+      - ./data:/app/data
+      # Persistence for uploaded media (Videos, Thumbnails, Logos)
+      - ./public/uploads:/app/public/uploads
+      - ./public/uploads:/app/dist/client/uploads

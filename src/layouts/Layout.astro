@@ -1,0 +1,117 @@
+---
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import StickyBanner from '../components/StickyBanner.astro';
+import { getDb } from '../lib/db';
+import { hexToHsl } from '../lib/color';
+import '../styles/global.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+  ogImage?: string;
+  ogType?: string;
+}
+
+const { title, description, ogImage, ogType = 'website' } = Astro.props;
+
+const db = getDb();
+const settings = db.settings;
+
+const pageTitle = title ? `${title} - ${settings.siteName}` : settings.metaTitle;
+const pageDesc = description || settings.metaDescription;
+const pageImage = ogImage || settings.logoUrl;
+const primaryHsl = hexToHsl(settings.primaryColor || '#7c3aed');
+---
+
+<!DOCTYPE html>
+<html lang="id" class="dark notranslate bg-[#030712]" translate="no">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={pageDesc} />
+    <meta name="keywords" content={settings.metaKeywords} />
+    <meta name="author" content={settings.author} />
+
+    <!-- Dynamic Theme Color Setup -->
+    <style define:vars={{ primaryHsl }}>
+      :root {
+        --primary: var(--primaryHsl);
+        --ring: var(--primaryHsl);
+      }
+    </style>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href={settings.faviconUrl || '/favicon.ico'} />
+
+    <!-- Open Graph Meta -->
+    <meta property="og:type" content={ogType} />
+    <meta property="og:locale" content="id_ID" />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={pageDesc} />
+    {pageImage && <meta property="og:image" content={pageImage} />}
+    <meta property="og:site_name" content={settings.siteName} />
+
+    <!-- Twitter Meta -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={pageTitle} />
+    <meta name="twitter:description" content={pageDesc} />
+    {pageImage && <meta name="twitter:image" content={pageImage} />}
+
+    <!-- Structured Data JSON-LD for SEO -->
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": settings.siteName,
+      "description": pageDesc,
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": "/search?q={search_term_string}",
+        "query-input": "required name=search_term_string"
+      }
+    })} />
+
+    <!-- Custom Analytics / Tracking Scripts from Agent Panel -->
+    {settings.headScripts && <Fragment set:html={settings.headScripts} />}
+  </head>
+  <body class="min-h-screen flex flex-col bg-[#030712] text-gray-100 antialiased selection:bg-primary selection:text-white pb-16">
+    <Header />
+    <main class="flex-1">
+      <slot />
+    </main>
+    <Footer />
+
+    <!-- Sticky Bottom Floating Banner -->
+    <StickyBanner />
+
+    <!-- Popunder Script Handler -->
+    {settings.popunderEnabled && settings.popunderUrl && (
+      <script define:vars={{ popunderUrl: settings.popunderUrl, freqHours: settings.popunderFrequencyHours || 6 }}>
+        (function() {
+          const STORAGE_KEY = 'popunder_last_trigger';
+          const intervalMs = (freqHours || 6) * 60 * 60 * 1000;
+
+          function triggerPopunder() {
+            const last = localStorage.getItem(STORAGE_KEY);
+            const now = Date.now();
+            if (!last || now - Number(last) > intervalMs) {
+              localStorage.setItem(STORAGE_KEY, String(now));
+              const win = window.open(popunderUrl, '_blank');
+              if (win) {
+                win.blur();
+                window.focus();
+              }
+            }
+          }
+
+          document.addEventListener('click', function onFirstClick(e) {
+            // Check if clicking close sticky button or modal
+            if (e.target.closest('#close-sticky-btn') || e.target.closest('.no-popunder')) return;
+            triggerPopunder();
+          }, { once: false });
+        })();
+      </script>
+    )}
+  </body>
+</html>

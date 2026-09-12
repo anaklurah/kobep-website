@@ -1,0 +1,63 @@
+---
+import Layout from '../layouts/Layout.astro';
+import VideoCard from '../components/VideoCard.astro';
+import SearchBar from '../components/SearchBar.astro';
+import AdBanner from '../components/AdBanner.astro';
+import { getDb } from '../lib/db';
+
+export const prerender = false;
+
+const query = (Astro.url.searchParams.get('q') || Astro.url.searchParams.get('keyword') || '').trim().toLowerCase();
+const db = getDb();
+
+const searchResults = query
+  ? db.videos.filter(
+      (v) =>
+        v.title.toLowerCase().includes(query) ||
+        v.description.toLowerCase().includes(query) ||
+        v.category.toLowerCase().includes(query) ||
+        (v.tags && v.tags.some((t) => t.toLowerCase().includes(query)))
+    )
+  : [];
+---
+
+<Layout title={query ? `Hasil Pencarian: "${query}"` : 'Pencarian Video'}>
+  <div class="container mx-auto px-4 py-3">
+    <SearchBar initialQuery={query} />
+
+    <AdBanner position="header" />
+
+    <div class="my-6 border-b border-gray-800/80 pb-4 flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-bold text-white flex items-center gap-2">
+          <span>Hasil Pencarian:</span>
+          <span class="text-primary font-black">"{query}"</span>
+        </h1>
+        <p class="text-xs text-gray-400 mt-1">
+          Ditemukan <strong class="text-white">{searchResults.length}</strong> video yang cocok.
+        </p>
+      </div>
+    </div>
+
+    {searchResults.length === 0 ? (
+      <div class="text-center py-16 bg-gray-950/40 rounded-2xl border border-gray-800/80 my-8">
+        <div class="text-4xl mb-2">🔍</div>
+        <h3 class="text-base font-bold text-white mb-1">Tidak Ditemukan Video</h3>
+        <p class="text-xs text-gray-400 mb-4">Coba cari dengan kata kunci lain atau periksa ejaan Anda.</p>
+        <a href="/" class="inline-flex items-center px-4 py-2 rounded-lg bg-primary text-white text-xs font-semibold">
+          Lihat Semua Video
+        </a>
+      </div>
+    ) : (
+      <div class="mb-8">
+        <ul class="grid grid-cols-2 lg:grid-cols-4 gap-x-3 gap-y-6 md:gap-x-4 md:gap-y-7">
+          {searchResults.map((video) => (
+            <VideoCard video={video} />
+          ))}
+        </ul>
+      </div>
+    )}
+
+    <AdBanner position="watch_bottom" />
+  </div>
+</Layout>

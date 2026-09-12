@@ -1,0 +1,37 @@
+---
+import { getDb } from '../lib/db';
+
+interface Props {
+  position: 'header' | 'grid_middle' | 'watch_top' | 'watch_bottom';
+  className?: string;
+}
+
+const { position, className = '' } = Astro.props;
+const db = getDb();
+const activeAds = db.ads.filter((a) => a.position === position && a.isActive);
+const ad = activeAds.length > 0 ? activeAds[0] : null;
+---
+
+{ad && (
+  <div class={`ad-banner-container flex flex-col items-center justify-center my-3 mx-auto w-full ${className}`}>
+    <div class="text-[10px] uppercase tracking-wider text-gray-500 font-mono mb-1">Sponsored / Iklan</div>
+    {ad.type === 'image' && ad.imageUrl && (
+      <a 
+        href={ad.targetUrl || '#'} 
+        target="_blank" 
+        rel="noopener noreferrer sponsored"
+        class="block overflow-hidden rounded-lg border border-gray-800 hover:border-primary/50 transition-all shadow-md group"
+      >
+        <img 
+          src={ad.imageUrl} 
+          alt={ad.name} 
+          class="max-w-full h-auto object-contain mx-auto max-h-[120px] md:max-h-[160px] group-hover:opacity-95 transition-opacity"
+          loading="lazy"
+        />
+      </a>
+    )}
+    {ad.type === 'script' && ad.scriptCode && (
+      <div class="w-full flex justify-center" set:html={ad.scriptCode} />
+    )}
+  </div>
+)}
