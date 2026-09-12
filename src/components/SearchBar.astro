@@ -65,10 +65,10 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
   <form 
     action="/search" 
     method="GET" 
-    class={`smooth-search-form relative flex items-center bg-[#111827] hover:bg-[#151d2d] border border-gray-800 focus-within:border-primary/80 focus-within:ring-1 focus-within:ring-primary/80 rounded-full transition-all shadow-lg ${isMobileNavbar ? 'px-3 py-1.5' : 'px-3.5 py-1.5'}`}
+    class={`smooth-search-form relative flex items-center bg-[#0b101b]/95 hover:bg-[#0e1422] border border-slate-800/80 hover:border-slate-700/80 focus-within:border-primary/70 focus-within:ring-2 focus-within:ring-primary/20 backdrop-blur-md rounded-full transition-all shadow-xl ${isMobileNavbar ? 'px-3 py-1' : 'px-3.5 py-1.5'}`}
   >
     <!-- Magnifying Glass Icon -->
-    <div class={`${isMobileNavbar ? 'pl-0.5 pr-2' : 'pl-1.5 pr-2.5'} flex items-center pointer-events-none text-gray-400`}>
+    <div class={`${isMobileNavbar ? 'pl-0.5 pr-2' : 'pl-1.5 pr-2.5'} flex items-center pointer-events-none text-slate-400`}>
       <svg class={`${isMobileNavbar ? 'w-3.5 h-3.5' : 'w-4 h-4'}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
         <circle cx="11" cy="11" r="8"></circle>
         <path d="m21 21-4.35-4.35"></path>
@@ -83,13 +83,13 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
       placeholder={placeholder} 
       autocomplete="off"
       required
-      class={`smooth-search-input w-full bg-transparent text-white focus:outline-none placeholder:text-gray-500 font-medium ${isMobileNavbar ? 'py-1 text-xs' : 'py-1.5 text-sm'}`}
+      class={`smooth-search-input w-full bg-transparent text-white focus:outline-none placeholder:text-slate-500 font-medium ${isMobileNavbar ? 'py-1 text-xs' : 'py-1.5 text-sm'}`}
     />
 
     <!-- Clear Text (X) Button -->
     <button 
       type="button" 
-      class="smooth-clear-btn text-gray-400 hover:text-white p-1 rounded-full hidden transition-colors mr-1"
+      class="smooth-clear-btn text-slate-400 hover:text-white p-1 rounded-full hidden transition-colors mr-1 cursor-pointer"
       title="Bersihkan"
     >
       <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -101,7 +101,7 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
     <!-- Search Button -->
     <button 
       type="submit" 
-      class={`bg-primary hover:bg-primary/90 text-white font-bold rounded-full shadow-md transition-all active:scale-95 shrink-0 ${isMobileNavbar ? 'px-3 py-1 text-xs' : 'px-4 py-1.5 text-xs'}`}
+      class={`bg-gradient-to-r from-primary to-purple-600 hover:brightness-110 text-white font-bold rounded-full shadow-md shadow-primary/25 transition-all active:scale-95 shrink-0 cursor-pointer ${isMobileNavbar ? 'px-3.5 py-1 text-xs' : 'px-4.5 py-1.5 text-xs'}`}
     >
       Cari
     </button>
@@ -109,7 +109,7 @@ const trendingCategories = db.categories.slice(0, 5).map((cat) => {
 
   <!-- Smooth Dropdown Menu (Directly Below Search Bar, Not Fullscreen) -->
   <div 
-    class={`smooth-search-dropdown absolute top-full mt-2 bg-[#0d121d]/98 border border-gray-800/90 rounded-2xl shadow-2xl backdrop-blur-xl max-h-[70vh] overflow-y-auto space-y-4 md:space-y-5 transition-all duration-200 ease-out opacity-0 invisible translate-y-2 pointer-events-none z-50 scrollbar-thin scrollbar-thumb-gray-800 ${isMobileNavbar ? 'left-0 right-0 p-3.5' : 'left-4 right-4 p-4 md:p-5'}`}
+    class={`smooth-search-dropdown absolute top-full mt-2 bg-[#090d16]/98 border border-slate-800/90 rounded-2xl shadow-2xl backdrop-blur-xl max-h-[70vh] overflow-y-auto space-y-4 md:space-y-5 transition-all duration-200 ease-out opacity-0 invisible translate-y-2 pointer-events-none z-50 scrollbar-thin scrollbar-thumb-slate-800 ${isMobileNavbar ? 'left-0 right-0 p-3.5' : 'left-4 right-4 p-4 md:p-5'}`}
   >
     <!-- 1. Recent Searches (if available) -->
     <div class="dropdown-recent-section hidden">

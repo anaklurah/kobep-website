@@ -13,19 +13,21 @@ const ad = activeAds.length > 0 ? activeAds[0] : null;
 ---
 
 {ad && (
-  <div class={`ad-banner-container flex flex-col items-center justify-center my-3 mx-auto w-full ${className}`}>
-    <div class="text-[10px] uppercase tracking-wider text-gray-500 font-mono mb-1">Sponsored / Iklan</div>
+  <div class={`ad-banner-container flex flex-col items-center justify-center my-3.5 mx-auto w-full ${className}`}>
+    <span class="text-[9px] uppercase tracking-widest text-slate-500 font-medium px-2.5 py-0.5 rounded-full bg-slate-900/80 border border-slate-800/80 mb-1.5 select-none shadow-sm">
+      Sponsored
+    </span>
     {ad.type === 'image' && ad.imageUrl && (
       <a 
         href={ad.targetUrl || '#'} 
         target="_blank" 
         rel="noopener noreferrer sponsored"
-        class="block overflow-hidden rounded-lg border border-gray-800 hover:border-primary/50 transition-all shadow-md group"
+        class="block overflow-hidden rounded-xl border border-slate-800/80 hover:border-primary/50 transition-all shadow-lg hover:shadow-primary/10 group"
       >
         <img 
           src={ad.imageUrl} 
           alt={ad.name} 
-          class="max-w-full h-auto object-contain mx-auto max-h-[120px] md:max-h-[160px] group-hover:opacity-95 transition-opacity"
+          class="max-w-full h-auto object-contain mx-auto max-h-[120px] md:max-h-[160px] group-hover:scale-[1.01] transition-transform duration-300"
           loading="lazy"
         />
       </a>
