@@ -5,7 +5,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
-# Install dependencies first for layer caching
+# Install build tools for native SQLite bindings & dependencies
+RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm ci
 
@@ -22,8 +23,8 @@ FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-# Install FFmpeg for video processing (Intro, Outro, Watermark)
-RUN apk add --no-cache ffmpeg
+# Install FFmpeg for video processing and build tools for SQLite native module
+RUN apk add --no-cache ffmpeg python3 make g++
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0

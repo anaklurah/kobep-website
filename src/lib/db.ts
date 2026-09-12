@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import Database from 'better-sqlite3';
 
 export interface SiteSettings {
   siteName: string;
@@ -93,7 +94,8 @@ export interface DatabaseSchema {
 }
 
 const DB_DIR = path.resolve(process.cwd(), 'data');
-const DB_FILE = path.join(DB_DIR, 'db.json');
+const SQLITE_FILE = path.join(DB_DIR, 'database.sqlite');
+const JSON_BACKUP_FILE = path.join(DB_DIR, 'db.json');
 
 const DEFAULT_DB: DatabaseSchema = {
   settings: {
@@ -342,29 +344,547 @@ const DEFAULT_DB: DatabaseSchema = {
   }
 };
 
-function ensureDbFile(): void {
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
+let sqliteInstance: Database.Database | null = null;
+
+function initTablesAndSeed(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS settings (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      siteName TEXT,
+      tagline TEXT,
+      logoUrl TEXT,
+      logoText TEXT,
+      faviconUrl TEXT,
+      primaryColor TEXT,
+      metaTitle TEXT,
+      metaDescription TEXT,
+      metaKeywords TEXT,
+      author TEXT,
+      headScripts TEXT,
+      telegramLink TEXT,
+      adminPin TEXT,
+      popunderUrl TEXT,
+      popunderEnabled INTEGER,
+      popunderFrequencyHours INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_auth (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      username TEXT NOT NULL,
+      passwordHash TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS video_branding (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      enabled INTEGER,
+      introPath TEXT,
+      outroPath TEXT,
+      watermarkPath TEXT,
+      watermarkText TEXT,
+      watermarkPosition TEXT,
+      watermarkOpacity REAL
+    );
+
+    CREATE TABLE IF NOT EXISTS categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      description TEXT,
+      sort_order INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS videos (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      description TEXT,
+      videoUrl TEXT NOT NULL,
+      thumbUrl TEXT,
+      duration TEXT,
+      category TEXT NOT NULL,
+      views INTEGER DEFAULT 0,
+      likes INTEGER DEFAULT 0,
+      createdAt TEXT,
+      isFeatured INTEGER DEFAULT 0,
+      tags TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS ads (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      position TEXT NOT NULL,
+      type TEXT NOT NULL,
+      imageUrl TEXT,
+      targetUrl TEXT,
+      scriptCode TEXT,
+      isActive INTEGER DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS comments (
+      id TEXT PRIMARY KEY,
+      videoId TEXT NOT NULL,
+      authorName TEXT NOT NULL,
+      authorAvatar TEXT,
+      content TEXT NOT NULL,
+      createdAt TEXT,
+      likes INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS analytics (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      totalViews INTEGER DEFAULT 0,
+      dailyViews TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_videos_category ON videos(category);
+    CREATE INDEX IF NOT EXISTS idx_videos_slug ON videos(slug);
+    CREATE INDEX IF NOT EXISTS idx_comments_videoId ON comments(videoId);
+  `);
+
+  const row = db.prepare('SELECT count(*) as cnt FROM settings').get() as { cnt: number } | undefined;
+  if (!row || row.cnt === 0) {
+    let seedData = DEFAULT_DB;
+    if (fs.existsSync(JSON_BACKUP_FILE)) {
+      try {
+        const raw = fs.readFileSync(JSON_BACKUP_FILE, 'utf-8');
+        seedData = JSON.parse(raw) as DatabaseSchema;
+      } catch (err) {
+        console.error('Failed to parse existing db.json for SQLite migration, using defaults:', err);
+      }
+    }
+
+    const migrateTx = db.transaction(() => {
+      const s = seedData.settings || DEFAULT_DB.settings;
+      db.prepare(`
+        INSERT OR REPLACE INTO settings (
+          id, siteName, tagline, logoUrl, logoText, faviconUrl, primaryColor,
+          metaTitle, metaDescription, metaKeywords, author, headScripts,
+          telegramLink, adminPin, popunderUrl, popunderEnabled, popunderFrequencyHours
+        ) VALUES (
+          1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )
+      `).run(
+        s.siteName || 'KingBokep',
+        s.tagline || '',
+        s.logoUrl || '',
+        s.logoText || '',
+        s.faviconUrl || '',
+        s.primaryColor || '#7c3aed',
+        s.metaTitle || '',
+        s.metaDescription || '',
+        s.metaKeywords || '',
+        s.author || '',
+        s.headScripts || '',
+        s.telegramLink || '',
+        s.adminPin || '123456',
+        s.popunderUrl || '',
+        s.popunderEnabled ? 1 : 0,
+        s.popunderFrequencyHours || 6
+      );
+
+      const auth = seedData.adminAuth || {
+        username: 'adminkd',
+        passwordHash: '$2a$10$QPiPr/PXmq6YZBGgiT2vWOmCufqECXhQw3/WTC2rhZXBP.iUDkwgS'
+      };
+      db.prepare(`
+        INSERT OR REPLACE INTO admin_auth (id, username, passwordHash)
+        VALUES (1, ?, ?)
+      `).run(auth.username, auth.passwordHash);
+
+      const vb = seedData.videoBranding || DEFAULT_DB.videoBranding;
+      if (vb) {
+        db.prepare(`
+          INSERT OR REPLACE INTO video_branding (
+            id, enabled, introPath, outroPath, watermarkPath, watermarkText, watermarkPosition, watermarkOpacity
+          ) VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          vb.enabled ? 1 : 0,
+          vb.introPath || '',
+          vb.outroPath || '',
+          vb.watermarkPath || '',
+          vb.watermarkText || 'Nyalaporn',
+          vb.watermarkPosition || 'center',
+          vb.watermarkOpacity ?? 0.35
+        );
+      }
+
+      const insertCat = db.prepare(`
+        INSERT OR REPLACE INTO categories (id, name, slug, description, sort_order)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      (seedData.categories || []).forEach((c, idx) => {
+        insertCat.run(c.id || `cat-${idx + 1}`, c.name, c.slug, c.description || '', c.order || idx);
+      });
+
+      const insertVid = db.prepare(`
+        INSERT OR REPLACE INTO videos (
+          id, title, slug, description, videoUrl, thumbUrl, duration, category, views, likes, createdAt, isFeatured, tags
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      (seedData.videos || []).forEach((v, idx) => {
+        insertVid.run(
+          v.id || `vid-${idx + 1}`,
+          v.title,
+          v.slug,
+          v.description || '',
+          v.videoUrl,
+          v.thumbUrl || '',
+          v.duration || '03:00',
+          v.category,
+          v.views || 0,
+          v.likes || 0,
+          v.createdAt || new Date().toISOString(),
+          v.isFeatured ? 1 : 0,
+          JSON.stringify(v.tags || [])
+        );
+      });
+
+      const insertAd = db.prepare(`
+        INSERT OR REPLACE INTO ads (id, name, position, type, imageUrl, targetUrl, scriptCode, isActive)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      (seedData.ads || []).forEach((a, idx) => {
+        insertAd.run(
+          a.id || `ad-${idx + 1}`,
+          a.name,
+          a.position,
+          a.type,
+          a.imageUrl || '',
+          a.targetUrl || '',
+          a.scriptCode || '',
+          a.isActive ? 1 : 0
+        );
+      });
+
+      const insertComm = db.prepare(`
+        INSERT OR REPLACE INTO comments (id, videoId, authorName, authorAvatar, content, createdAt, likes)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      (seedData.comments || []).forEach((cm, idx) => {
+        insertComm.run(
+          cm.id || `comm-${idx + 1}`,
+          cm.videoId,
+          cm.authorName,
+          cm.authorAvatar || '',
+          cm.content,
+          cm.createdAt || new Date().toISOString(),
+          cm.likes || 0
+        );
+      });
+
+      const an = seedData.analytics || DEFAULT_DB.analytics;
+      db.prepare(`
+        INSERT OR REPLACE INTO analytics (id, totalViews, dailyViews)
+        VALUES (1, ?, ?)
+      `).run(
+        an.totalViews || 0,
+        JSON.stringify(an.dailyViews || {})
+      );
+    });
+
+    migrateTx();
   }
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(DEFAULT_DB, null, 2), 'utf-8');
+}
+
+export function getSqliteDb(): Database.Database {
+  if (!sqliteInstance) {
+    if (!fs.existsSync(DB_DIR)) {
+      fs.mkdirSync(DB_DIR, { recursive: true });
+    }
+    sqliteInstance = new Database(SQLITE_FILE);
+    sqliteInstance.pragma('journal_mode = WAL');
+    sqliteInstance.pragma('foreign_keys = ON');
+    initTablesAndSeed(sqliteInstance);
   }
+  return sqliteInstance;
 }
 
 export function getDb(): DatabaseSchema {
-  ensureDbFile();
-  try {
-    const raw = fs.readFileSync(DB_FILE, 'utf-8');
-    return JSON.parse(raw) as DatabaseSchema;
-  } catch (err) {
-    console.error('Error reading db:', err);
-    return DEFAULT_DB;
+  const db = getSqliteDb();
+
+  const sRow = db.prepare('SELECT * FROM settings WHERE id = 1').get() as any;
+  const settings: SiteSettings = sRow
+    ? {
+        siteName: sRow.siteName,
+        tagline: sRow.tagline,
+        logoUrl: sRow.logoUrl,
+        logoText: sRow.logoText,
+        faviconUrl: sRow.faviconUrl,
+        primaryColor: sRow.primaryColor,
+        metaTitle: sRow.metaTitle,
+        metaDescription: sRow.metaDescription,
+        metaKeywords: sRow.metaKeywords,
+        author: sRow.author,
+        headScripts: sRow.headScripts,
+        telegramLink: sRow.telegramLink,
+        adminPin: sRow.adminPin,
+        popunderUrl: sRow.popunderUrl,
+        popunderEnabled: Boolean(sRow.popunderEnabled),
+        popunderFrequencyHours: sRow.popunderFrequencyHours
+      }
+    : DEFAULT_DB.settings;
+
+  const authRow = db.prepare('SELECT * FROM admin_auth WHERE id = 1').get() as any;
+  const adminAuth = authRow
+    ? {
+        username: authRow.username,
+        passwordHash: authRow.passwordHash
+      }
+    : {
+        username: 'adminkd',
+        passwordHash: '$2a$10$QPiPr/PXmq6YZBGgiT2vWOmCufqECXhQw3/WTC2rhZXBP.iUDkwgS'
+      };
+
+  const vbRow = db.prepare('SELECT * FROM video_branding WHERE id = 1').get() as any;
+  const videoBranding: VideoBrandingSettings = vbRow
+    ? {
+        enabled: Boolean(vbRow.enabled),
+        introPath: vbRow.introPath || '',
+        outroPath: vbRow.outroPath || '',
+        watermarkPath: vbRow.watermarkPath || '',
+        watermarkText: vbRow.watermarkText || 'Nyalaporn',
+        watermarkPosition: vbRow.watermarkPosition || 'center',
+        watermarkOpacity: vbRow.watermarkOpacity ?? 0.35
+      }
+    : DEFAULT_DB.videoBranding!;
+
+  const catRows = db.prepare('SELECT * FROM categories ORDER BY sort_order ASC, name ASC').all() as any[];
+  const categories: Category[] = catRows.map(r => ({
+    id: r.id,
+    name: r.name,
+    slug: r.slug,
+    description: r.description || '',
+    order: r.sort_order
+  }));
+
+  const vidRows = db.prepare('SELECT * FROM videos ORDER BY datetime(createdAt) DESC').all() as any[];
+  const videos: Video[] = vidRows.map(r => {
+    let tags: string[] = [];
+    try {
+      tags = r.tags ? JSON.parse(r.tags) : [];
+    } catch {
+      tags = [];
+    }
+    return {
+      id: r.id,
+      title: r.title,
+      slug: r.slug,
+      description: r.description || '',
+      videoUrl: r.videoUrl,
+      thumbUrl: r.thumbUrl || '',
+      duration: r.duration || '03:00',
+      category: r.category,
+      views: Number(r.views || 0),
+      likes: Number(r.likes || 0),
+      createdAt: r.createdAt,
+      isFeatured: Boolean(r.isFeatured),
+      tags
+    };
+  });
+
+  const adRows = db.prepare('SELECT * FROM ads').all() as any[];
+  const ads: AdBanner[] = adRows.map(r => ({
+    id: r.id,
+    name: r.name,
+    position: r.position,
+    type: r.type,
+    imageUrl: r.imageUrl || '',
+    targetUrl: r.targetUrl || '',
+    scriptCode: r.scriptCode || '',
+    isActive: Boolean(r.isActive)
+  }));
+
+  const commRows = db.prepare('SELECT * FROM comments ORDER BY datetime(createdAt) DESC').all() as any[];
+  const comments: Comment[] = commRows.map(r => ({
+    id: r.id,
+    videoId: r.videoId,
+    authorName: r.authorName,
+    authorAvatar: r.authorAvatar || '',
+    content: r.content,
+    createdAt: r.createdAt,
+    likes: Number(r.likes || 0)
+  }));
+
+  const anRow = db.prepare('SELECT * FROM analytics WHERE id = 1').get() as any;
+  let dailyViews: Record<string, number> = {};
+  if (anRow && anRow.dailyViews) {
+    try {
+      dailyViews = JSON.parse(anRow.dailyViews);
+    } catch {
+      dailyViews = {};
+    }
   }
+  const analytics = {
+    totalViews: anRow ? Number(anRow.totalViews || 0) : 0,
+    dailyViews
+  };
+
+  return {
+    settings,
+    adminAuth,
+    videoBranding,
+    categories,
+    videos,
+    ads,
+    comments,
+    analytics
+  };
 }
 
 export function saveDb(data: DatabaseSchema): void {
-  ensureDbFile();
-  const tempPath = `${DB_FILE}.tmp`;
-  fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf-8');
-  fs.renameSync(tempPath, DB_FILE);
+  const db = getSqliteDb();
+
+  const tx = db.transaction(() => {
+    if (data.settings) {
+      const s = data.settings;
+      db.prepare(`
+        INSERT OR REPLACE INTO settings (
+          id, siteName, tagline, logoUrl, logoText, faviconUrl, primaryColor,
+          metaTitle, metaDescription, metaKeywords, author, headScripts,
+          telegramLink, adminPin, popunderUrl, popunderEnabled, popunderFrequencyHours
+        ) VALUES (
+          1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+        )
+      `).run(
+        s.siteName,
+        s.tagline || '',
+        s.logoUrl || '',
+        s.logoText || '',
+        s.faviconUrl || '',
+        s.primaryColor || '#7c3aed',
+        s.metaTitle || '',
+        s.metaDescription || '',
+        s.metaKeywords || '',
+        s.author || '',
+        s.headScripts || '',
+        s.telegramLink || '',
+        s.adminPin || '123456',
+        s.popunderUrl || '',
+        s.popunderEnabled ? 1 : 0,
+        s.popunderFrequencyHours || 6
+      );
+    }
+
+    if (data.adminAuth) {
+      db.prepare(`
+        INSERT OR REPLACE INTO admin_auth (id, username, passwordHash)
+        VALUES (1, ?, ?)
+      `).run(data.adminAuth.username, data.adminAuth.passwordHash);
+    }
+
+    if (data.videoBranding) {
+      const vb = data.videoBranding;
+      db.prepare(`
+        INSERT OR REPLACE INTO video_branding (
+          id, enabled, introPath, outroPath, watermarkPath, watermarkText, watermarkPosition, watermarkOpacity
+        ) VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        vb.enabled ? 1 : 0,
+        vb.introPath || '',
+        vb.outroPath || '',
+        vb.watermarkPath || '',
+        vb.watermarkText || 'Nyalaporn',
+        vb.watermarkPosition || 'center',
+        vb.watermarkOpacity ?? 0.35
+      );
+    }
+
+    if (Array.isArray(data.categories)) {
+      db.prepare('DELETE FROM categories').run();
+      const insertCat = db.prepare(`
+        INSERT INTO categories (id, name, slug, description, sort_order)
+        VALUES (?, ?, ?, ?, ?)
+      `);
+      data.categories.forEach((c, idx) => {
+        insertCat.run(c.id || `cat-${idx + 1}`, c.name, c.slug, c.description || '', c.order || idx);
+      });
+    }
+
+    if (Array.isArray(data.videos)) {
+      db.prepare('DELETE FROM videos').run();
+      const insertVid = db.prepare(`
+        INSERT INTO videos (
+          id, title, slug, description, videoUrl, thumbUrl, duration, category, views, likes, createdAt, isFeatured, tags
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      data.videos.forEach((v, idx) => {
+        insertVid.run(
+          v.id || `vid-${idx + 1}`,
+          v.title,
+          v.slug,
+          v.description || '',
+          v.videoUrl,
+          v.thumbUrl || '',
+          v.duration || '03:00',
+          v.category,
+          v.views || 0,
+          v.likes || 0,
+          v.createdAt || new Date().toISOString(),
+          v.isFeatured ? 1 : 0,
+          JSON.stringify(v.tags || [])
+        );
+      });
+    }
+
+    if (Array.isArray(data.ads)) {
+      db.prepare('DELETE FROM ads').run();
+      const insertAd = db.prepare(`
+        INSERT INTO ads (id, name, position, type, imageUrl, targetUrl, scriptCode, isActive)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      data.ads.forEach((a, idx) => {
+        insertAd.run(
+          a.id || `ad-${idx + 1}`,
+          a.name,
+          a.position,
+          a.type,
+          a.imageUrl || '',
+          a.targetUrl || '',
+          a.scriptCode || '',
+          a.isActive ? 1 : 0
+        );
+      });
+    }
+
+    if (Array.isArray(data.comments)) {
+      db.prepare('DELETE FROM comments').run();
+      const insertComm = db.prepare(`
+        INSERT INTO comments (id, videoId, authorName, authorAvatar, content, createdAt, likes)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+      data.comments.forEach((cm, idx) => {
+        insertComm.run(
+          cm.id || `comm-${idx + 1}`,
+          cm.videoId,
+          cm.authorName,
+          cm.authorAvatar || '',
+          cm.content,
+          cm.createdAt || new Date().toISOString(),
+          cm.likes || 0
+        );
+      });
+    }
+
+    if (data.analytics) {
+      db.prepare(`
+        INSERT OR REPLACE INTO analytics (id, totalViews, dailyViews)
+        VALUES (1, ?, ?)
+      `).run(
+        data.analytics.totalViews || 0,
+        JSON.stringify(data.analytics.dailyViews || {})
+      );
+    }
+  });
+
+  tx();
+
+  try {
+    const tempPath = `${JSON_BACKUP_FILE}.tmp`;
+    fs.writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf-8');
+    fs.renameSync(tempPath, JSON_BACKUP_FILE);
+  } catch (err) {
+    console.error('Failed to write JSON backup:', err);
+  }
 }
+
+export { SQLITE_FILE };

@@ -25,3 +25,8 @@ dist/client/uploads/
 # OS Metadata
 .DS_Store
 Thumbs.db
+
+# SQLite Database & Temporary Files
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

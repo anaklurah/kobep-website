@@ -65,7 +65,7 @@ Antarmuka manajemen berstandar **Enterprise SaaS** tanpa emoji dengan ikon SVG p
 - **Framework**: [Astro 5](https://astro.build/) (Server-Side Rendering / SSR Mode)
 - **Adapter**: `@astrojs/node` (Standalone Mode)
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/) dengan Dynamic CSS Variables
-- **Database**: Atomic JSON Database (`data/db.json`) dengan operasi file lock aman
+- **Database**: [SQLite](https://www.sqlite.org/) via [`better-sqlite3`](https://github.com/WiseLibs/better-sqlite3) dengan mode **WAL (Write-Ahead Logging)**, index performa tinggi, dan backup otomatis ke `data/db.json`
 - **Video Engine**: [FFmpeg](https://ffmpeg.org/) (Concat filter, Overlay filter, H.264/AAC Web Optimization `+faststart`)
 - **Containerization**: Docker & Docker Compose (Multi-stage build berbasis Alpine)
 
@@ -120,7 +120,7 @@ docker compose down
 ```
 
 #### Keamanan Data (Persistence Volume):
-- `./data:/app/data`: Seluruh database JSON (`db.json`) tersimpan di host sehingga tidak akan pernah hilang saat container diperbarui.
+- `./data:/app/data`: Seluruh database SQLite (`database.sqlite`) dan backup JSON (`db.json`) tersimpan di host sehingga tidak akan pernah hilang saat container diperbarui.
 - `./public/uploads:/app/public/uploads`: Berkas video, thumbnail, intro, outro, dan watermark yang diunggah agen tersimpan langsung di server host.
 
 ---
@@ -129,7 +129,8 @@ docker compose down
 
 ```text
 ├── data/
-│   └── db.json               # Database JSON atomic (settings, videos, categories, ads)
+│   ├── database.sqlite       # Database SQLite produksi (WAL mode)
+│   └── db.json               # Cadangan data JSON otomatis
 ├── public/
 │   ├── uploads/              # Berkas media (videos, thumbs, logos, intros, outros, watermarks)
 │   └── default-thumb.jpg     # Thumbnail fallback
